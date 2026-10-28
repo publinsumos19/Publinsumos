@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Box, Button, Flex, FormControl, FormLabel, Icon, Input, InputGroup, InputRightElement, Link, Text, useColorModeValue } from '@chakra-ui/react';
 import { MdOutlineRemoveRedEye } from 'react-icons/md';
 import { RiEyeCloseLine } from 'react-icons/ri';
@@ -19,6 +19,12 @@ export default function SignIn() {
   const textColorSecondary = 'gray.400';
   const brandStars = useColorModeValue('brand.500', 'brand.400');
   const registro = modo === 'crear';
+  // Once the admin closes sign-ups in Ajustes, the "Crear cuenta" link goes away.
+  const [abierto, setAbierto] = useState(true);
+  useEffect(() => {
+    if (isDemo) return;
+    supabase.rpc('registro_abierto').then(({ data, error }) => { if (!error && data === false) { setAbierto(false); setModo((m) => (m === 'crear' ? 'entrar' : m)); } });
+  }, []);
 
   const demoPanel = useColorModeValue('brand.100', 'whiteAlpha.100');
   const entrarDemo = async (u) => {
@@ -96,7 +102,7 @@ export default function SignIn() {
             </Flex>
           </Box>
         )}
-        {!isDemo && <Text color={textColorSecondary} fontWeight="400" fontSize="14px">
+        {!isDemo && (abierto || modo !== 'entrar') && <Text color={textColorSecondary} fontWeight="400" fontSize="14px">
           {modo === 'entrar' ? '¿Eres nuevo? ' : '¿Ya tienes cuenta? '}
           <Link color={brandStars} fontWeight="500" onClick={() => { setModo(modo === 'entrar' ? 'crear' : 'entrar'); setMsg(null); }}>
             {modo === 'entrar' ? 'Crear cuenta' : 'Iniciar sesión'}

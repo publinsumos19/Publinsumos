@@ -7,6 +7,7 @@ import allRoutes from '../routes';
 import { isDemo } from '../lib/supabase';
 import { demo } from '../lib/demo/client';
 import Recordatorios from '../components/Recordatorios';
+import TourGuiado from '../components/Tour';
 
 export default function AdminLayout() {
   const { isAdmin, cfg } = useAuth();
@@ -37,6 +38,7 @@ export default function AdminLayout() {
           ) : (
             <>
             <Recordatorios />
+            <TourGuiado rutas={routes.map((r) => r.path)} />
             <Routes>
               {routes.map((r) => <Route key={r.path} path={r.path + '/*'} element={r.element} />)}
               <Route path="*" element={<Navigate to={isAdmin ? '/dashboard' : '/vender'} replace />} />

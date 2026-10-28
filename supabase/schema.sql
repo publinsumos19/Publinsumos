@@ -647,3 +647,117 @@ insert into public.config_costos (id, datos) values (1, '{
   "gramajes": {"g75": 369, "g150": 728, "g200": 972, "g240": 1165, "g300": 1495},
   "sustratos": {"opc": 2709, "adc": 2304, "ad48": 2300, "vin": 8800, "met": 10000}
 }') on conflict (id) do nothing;
+
+-- ============================================================
+-- Versión 5: copia de seguridad diaria, reiniciar el sistema,
+-- cerrar el registro y aviso de cambios para actualizar las pantallas.
+-- ============================================================
+
+-- Una sola copia por tipo, que se sobrescribe: 'diario' (cada noche) y 'antes_reinicio'.
+create table if not exists public.respaldos (
+  tipo text primary key,
+  creado timestamptz not null default now(),
+  datos jsonb not null
+);
+alter table public.respaldos enable row level security;
+
+-- Solo la puede llamar el servidor (cada noche) o un administrador.
+create or replace function public.puede_respaldar() returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.es_admin() or session_user not in ('authenticator', 'anon', 'authenticated');
+$$;
+
+create or replace function public.hacer_respaldo(p_tipo text default 'diario') returns timestamptz
+language plpgsql security definer set search_path = public as $$
+declare
+  t text;
+  tablas jsonb := '{}';
+  filas jsonb;
+  ahora timestamptz := now();
+begin
+  if not public.puede_respaldar() then raise exception 'Solo el administrador puede hacer copias'; end if;
+  for t in select tablename from pg_tables where schemaname = 'public' and tablename <> 'respaldos' order by tablename loop
+    execute format('select coalesce(jsonb_agg(to_jsonb(x)), ''[]'') from public.%I x', t) into filas;
+    tablas := tablas || jsonb_build_object(t, filas);
+  end loop;
+  begin
+    select coalesce(jsonb_agg(jsonb_build_object('id', id, 'email', email, 'encrypted_password', encrypted_password, 'raw_user_meta_data', raw_user_meta_data, 'created_at', created_at)), '[]')
+      into filas from auth.users;
+    tablas := tablas || jsonb_build_object('auth.users', filas);
+  exception when others then null;
+  end;
+  insert into respaldos (tipo, creado, datos)
+  values (p_tipo, ahora, jsonb_build_object('sistema', 'Ecoglobal Caja', 'creado', ahora, 'tablas', tablas))
+  on conflict (tipo) do update set creado = excluded.creado, datos = excluded.datos;
+  return ahora;
+end $$;
+
+create or replace function public.respaldos_info() returns table (tipo text, creado timestamptz, bytes int)
+language sql stable security definer set search_path = public as $$
+  select r.tipo, r.creado, octet_length(r.datos::text) from respaldos r where public.es_admin() order by r.creado desc;
+$$;
+
+create or replace function public.descargar_respaldo(p_tipo text) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.es_admin() then raise exception 'Solo el administrador puede descargar copias'; end if;
+  return (select datos from respaldos where tipo = p_tipo);
+end $$;
+
+-- Deja el sistema en ceros para empezar de verdad: borra ventas, abonos, cotizaciones,
+-- cierres, aperturas, gastos y lecturas del contador. Conserva usuarios, ajustes,
+-- clientes, productos con su stock y conteos. Antes guarda una copia 'antes_reinicio'.
+create or replace function public.reiniciar_sistema(p_confirma text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.es_admin() then raise exception 'Solo el administrador puede reiniciar el sistema'; end if;
+  if p_confirma is distinct from 'REINICIAR' then raise exception 'Escribe REINICIAR para confirmar'; end if;
+  perform public.hacer_respaldo('antes_reinicio');
+  delete from abonos where true;
+  delete from venta_costos where true;
+  delete from ventas where true;
+  delete from trabajo_abonos where true;
+  delete from trabajo_costos where true;
+  delete from trabajos where true;
+  delete from cierres where true;
+  delete from aperturas where true;
+  delete from gastos where true;
+  delete from contador where true;
+  perform setval(pg_get_serial_sequence('public.ventas', 'numero'), 1, false);
+  perform setval(pg_get_serial_sequence('public.trabajos', 'numero'), 1, false);
+  update config_publica set datos = datos || '{"ultimoContador": 0}'::jsonb where id = 1;
+end $$;
+
+-- La pantalla de inicio pregunta si se pueden crear cuentas nuevas.
+create or replace function public.registro_abierto() returns boolean
+language sql stable security definer set search_path = public as $$
+  select not exists (select 1 from perfiles)
+      or coalesce((select (datos->>'registroCerrado')::boolean from config_publica where id = 1), false) = false;
+$$;
+
+-- Un contador por tabla que sube con cada cambio. La app lo consulta cada pocos
+-- segundos y recarga solo lo que cambió (en Railway no hay tiempo real).
+create table if not exists public.cambios (
+  tabla text primary key,
+  n bigint not null default 0
+);
+alter table public.cambios enable row level security;
+drop policy if exists cambios_leer on public.cambios;
+create policy cambios_leer on public.cambios for select using (public.es_activo());
+
+create or replace function public.marcar_cambio() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into cambios (tabla, n) values (TG_TABLE_NAME, 1)
+  on conflict (tabla) do update set n = cambios.n + 1;
+  return null;
+end $$;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['ventas', 'abonos', 'productos', 'clientes', 'config_publica', 'contador', 'perfiles', 'trabajos', 'trabajo_abonos', 'cierres', 'aperturas', 'gastos', 'conteos'] loop
+    execute format('drop trigger if exists marcar_cambio on public.%I', t);
+    execute format('create trigger marcar_cambio after insert or update or delete on public.%I for each statement execute function public.marcar_cambio()', t);
+  end loop;
+end $$;

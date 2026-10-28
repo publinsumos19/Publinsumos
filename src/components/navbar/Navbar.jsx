@@ -1,7 +1,8 @@
 import {
   Avatar, Box, Button, Flex, Icon, Menu, MenuButton, MenuItem, MenuList, Text, useColorMode, useColorModeValue,
 } from '@chakra-ui/react';
-import { IoMdMoon, IoMdNotificationsOutline, IoMdSunny } from 'react-icons/io';
+import { IoMdHelpCircleOutline, IoMdMoon, IoMdNotificationsOutline, IoMdSunny } from 'react-icons/io';
+import { abrirTour } from '../Tour';
 import { abrirRecordatorios } from '../Recordatorios';
 import { SidebarResponsive } from '../sidebar/Sidebar';
 import { useAuth } from '../../context/AuthContext';
@@ -9,7 +10,7 @@ import { isDemo } from '../../lib/supabase';
 import { demo } from '../../lib/demo/client';
 
 export default function Navbar({ title, routes }) {
-  const { perfil, isAdmin, signOut } = useAuth();
+  const { perfil, isAdmin, signOut, cfg } = useAuth();
   const { colorMode, toggleColorMode } = useColorMode();
   const mainText = useColorModeValue('navy.700', 'white');
   const secondaryText = useColorModeValue('gray.700', 'white');
@@ -36,8 +37,17 @@ export default function Navbar({ title, routes }) {
         <Flex
           ms="auto" alignItems="center" bg={menuBg} p="10px" borderRadius="30px" boxShadow={shadow} gap="6px" flex="none"
         >
-          <SidebarResponsive routes={routes} />
-          <Button variant="no-hover" bg="transparent" p="0" minW="unset" h="18px" w="max-content" onClick={abrirRecordatorios} aria-label="Recordatorios">
+          <Box data-tour="menu" display={{ base: 'flex', xl: 'none' }}><SidebarResponsive routes={routes} /></Box>
+          <Menu>
+            <MenuButton data-tour="ayuda" aria-label="Ayuda" h="18px">
+              <Icon me="10px" h="20px" w="20px" color={iconColor} as={IoMdHelpCircleOutline} />
+            </MenuButton>
+            <MenuList boxShadow={shadow} p="10px" mt="10px" borderRadius="20px" bg={menuBg} border="none">
+              {cfg?.tourActivo !== false && <MenuItem bg="transparent" borderRadius="8px" px="14px" onClick={abrirTour}>Ver el tour guiado</MenuItem>}
+              <MenuItem as="a" href={isDemo ? '#/guia' : '/guia'} target="_blank" rel="noreferrer" bg="transparent" borderRadius="8px" px="14px">Abrir la guía de uso</MenuItem>
+            </MenuList>
+          </Menu>
+          <Button data-tour="recordatorios" variant="no-hover" bg="transparent" p="0" minW="unset" h="18px" w="max-content" onClick={abrirRecordatorios} aria-label="Recordatorios">
             <Icon me="10px" h="20px" w="20px" color={iconColor} as={IoMdNotificationsOutline} />
           </Button>
           <Button variant="no-hover" bg="transparent" p="0" minW="unset" h="18px" w="max-content" onClick={toggleColorMode}
@@ -45,7 +55,7 @@ export default function Navbar({ title, routes }) {
             <Icon me="10px" h="18px" w="18px" color={iconColor} as={colorMode === 'light' ? IoMdMoon : IoMdSunny} />
           </Button>
           <Menu>
-            <MenuButton p="0px" aria-label="Mi cuenta">
+            <MenuButton p="0px" aria-label="Mi cuenta" data-tour="cuenta">
               <Avatar _hover={{ cursor: 'pointer' }} color="white" name={perfil?.nombre || perfil?.email || 'Usuario'} bg="brand.500" size="sm" w="40px" h="40px" />
             </MenuButton>
             <MenuList boxShadow={shadow} p="0px" mt="10px" borderRadius="20px" bg={menuBg} border="none">

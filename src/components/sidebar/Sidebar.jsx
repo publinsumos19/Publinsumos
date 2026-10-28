@@ -41,7 +41,7 @@ function Links({ routes, onNavigate }) {
   return routes.map((r) => {
     const active = location.pathname === r.path || location.pathname.startsWith(r.path + '/');
     return (
-      <NavLink key={r.path} to={r.path} onClick={onNavigate}>
+      <NavLink key={r.path} to={r.path} onClick={onNavigate} data-tour={'nav' + r.path}>
         <HStack spacing={active ? '22px' : '26px'} py="5px" ps="10px">
           <Flex w="100%" alignItems="center">
             <Box color={active ? activeIcon : textColor} me="18px">

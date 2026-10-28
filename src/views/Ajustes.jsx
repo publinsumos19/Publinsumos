@@ -4,10 +4,11 @@ import { MdClose } from 'react-icons/md';
 import Card from '../components/card/Card';
 import { Field, NumIn, Sel, TextIn } from '../components/Field';
 import { useAuth } from '../context/AuthContext';
-import { supabase, errorMessage } from '../lib/supabase';
+import { supabase, errorMessage, isDemo } from '../lib/supabase';
 import { ESCALAS, toNum } from '../lib/pricing';
 import { semaforoCfg } from '../lib/semaforo';
 import { cotizacionCfg } from '../lib/trabajo';
+import SistemaAjustes from '../components/SistemaAjustes';
 
 // The signature is scaled down so it stays light inside the settings.
 function leerFirma(file) {
@@ -222,11 +223,29 @@ export default function Ajustes() {
       </Card>
 
       <Card>
+        <Text fontSize="lg" fontWeight="700" color={textColor}>Acceso y ayuda</Text>
+        <Text fontSize="sm" color="secondaryGray.600" mb="10px">Se aplican al presionar «Guardar ajustes».</Text>
+        <Flex direction="column" gap="10px">
+          {!isDemo && (
+            <Checkbox colorScheme="green" isChecked={!!a.registroCerrado} onChange={(e) => upd((y) => { y.registroCerrado = e.target.checked; })}>
+              Cerrar el registro: ocultar «Crear cuenta» en la pantalla de inicio (nadie más puede registrarse)
+            </Checkbox>
+          )}
+          <Checkbox colorScheme="green" isChecked={a.tourActivo !== false} onChange={(e) => upd((y) => { y.tourActivo = e.target.checked; })}>
+            Tour guiado activo: se muestra la primera vez que cada usuario entra y con el botón de ayuda
+          </Checkbox>
+          <Text fontSize="sm" color="secondaryGray.600">La guía de uso está siempre en <b>{window.location.origin}/guia</b>.</Text>
+        </Flex>
+      </Card>
+
+      <Card>
         <Flex gap="10px" wrap="wrap">
           <Button variant="brand" onClick={guardar} isLoading={busy}>Guardar ajustes</Button>
           <Button variant="light" onClick={reset}>Descartar cambios</Button>
         </Flex>
       </Card>
+
+      <SistemaAjustes />
     </Flex>
   );
 }

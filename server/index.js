@@ -104,6 +104,8 @@ async function auth(req, res, ruta, url) {
     const b = await body(req);
     const email = String(b.email || '').trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return authErr(res, 422, 'Unable to validate email address: invalid format', 'validation_failed');
+    const { rows: [abierto] } = await db.query('select public.registro_abierto() as si');
+    if (!abierto.si) return authErr(res, 403, 'Signups not allowed for this instance', 'signup_disabled');
     if (!b.password || String(b.password).length < 6) return authErr(res, 422, 'Password should be at least 6 characters', 'weak_password');
     try {
       const { rows } = await db.query("insert into auth.users (email, encrypted_password, raw_user_meta_data) values ($1, crypt($2, gen_salt('bf')), $3) returning *", [email, String(b.password), b.data || {}]);
@@ -178,9 +180,23 @@ const server = http.createServer(async (req, res) => {
 // Tiempo real no está disponible en este servidor: la app sigue funcionando y se actualiza al navegar.
 server.on('upgrade', (_req, socket) => socket.destroy());
 
+// Copia de seguridad diaria: una sola, que se sobrescribe cada noche desde las 11:30 p. m. (hora Colombia).
+async function respaldoNocturno() {
+  try {
+    const { rows: [r] } = await db.query(`select to_char(now() at time zone 'America/Bogota', 'HH24:MI') as hm,
+      (select (creado at time zone 'America/Bogota')::date < (now() at time zone 'America/Bogota')::date from public.respaldos where tipo = 'diario') as vieja`);
+    if (r.vieja === null || (r.vieja && r.hm >= '23:30')) {
+      await db.query("select public.hacer_respaldo('diario')");
+      console.log('Copia de seguridad diaria guardada.');
+    }
+  } catch (e) { console.error('No se pudo hacer la copia de seguridad:', e.message); }
+}
+
 instalar()
   .then((clave) => {
     iniciarPostgrest(clave);
+    respaldoNocturno();
+    setInterval(respaldoNocturno, 60 * 1000);
     server.listen(PORT, '0.0.0.0', () => console.log(`Ecoglobal Caja servidor listo en el puerto ${PORT}`));
   })
   .catch((e) => { console.error('No se pudo preparar la base de datos:', e); process.exit(1); });

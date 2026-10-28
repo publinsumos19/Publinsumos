@@ -14,6 +14,7 @@ export function errorMessage(error) {
   const m = String(error?.message || error || '');
   if (/Invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
   if (/Email not confirmed/i.test(m)) return 'Confirma tu correo antes de entrar. Revisa tu bandeja de entrada.';
+  if (/Signups not allowed|signup_disabled/i.test(m)) return 'El registro de cuentas nuevas está cerrado. Pídele al administrador que lo abra en Ajustes.';
   if (/User already registered/i.test(m)) return 'Ya existe una cuenta con ese correo.';
   if (/Password should be at least/i.test(m)) return 'La contraseña debe tener al menos 6 caracteres.';
   if (/sin acceso/i.test(m)) return 'Tu usuario todavía no está activo. Pídele al administrador que lo active.';
