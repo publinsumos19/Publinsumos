@@ -1,7 +1,7 @@
 // Same starting prices and costs as supabase/schema.sql.
 export const CONFIG_PUBLICA = {
   "negocio": {
-    "nombre": "Ecoglobal",
+    "nombre": "Publiinsumos",
     "telefono": "",
     "pie": "¡Gracias por tu compra!",
     "indicativo": "57"

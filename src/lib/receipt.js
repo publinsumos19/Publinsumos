@@ -2,7 +2,7 @@ import { money, intf, fdate, today, recibo, PAGOS } from './format';
 
 export function receiptText(negocio, v, kind) {
   const n = negocio || {};
-  const L = [`*${n.nombre || 'Ecoglobal'}*`];
+  const L = [`*${n.nombre || 'Publiinsumos'}*`];
   L.push(kind === 'quote' ? `Cotización · ${fdate(today())}` : `Recibo ${recibo(v)} · ${fdate(v.fecha)}`);
   if (v.cliente) L.push(`Cliente: ${v.cliente}`);
   L.push('');
@@ -26,7 +26,7 @@ export function receiptText(negocio, v, kind) {
 export function debtText(negocio, cliente, ventas) {
   const tot = ventas.reduce((a, v) => a + Number(v.saldo), 0);
   return [
-    `Hola ${cliente}, te saluda *${negocio?.nombre || 'Ecoglobal'}*.`,
+    `Hola ${cliente}, te saluda *${negocio?.nombre || 'Publiinsumos'}*.`,
     'Te compartimos tu saldo pendiente:',
     '',
     ...ventas.map((v) => `• ${recibo(v)} del ${fdate(v.fecha)}: ${money(v.saldo)}`),

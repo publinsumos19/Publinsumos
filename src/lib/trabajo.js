@@ -64,7 +64,7 @@ export function contarHabiles(desde, hasta) {
 }
 
 export function trabajoText(negocio, t) {
-  const L = [`*${negocio?.nombre || 'Ecoglobal'}*`, `${t.estado === 'cotizacion' ? 'Cotización' : 'Trabajo'} ${numeroT(t)} · ${fdate(t.fecha || today())}`];
+  const L = [`*${negocio?.nombre || 'Publiinsumos'}*`, `${t.estado === 'cotizacion' ? 'Cotización' : 'Trabajo'} ${numeroT(t)} · ${fdate(t.fecha || today())}`];
   if (t.cliente) L.push(`Cliente: ${t.cliente}${t.sucursal ? ` · ${t.sucursal}` : ''}`);
   if (t.titulo) L.push(`*${t.titulo}*`);
   L.push('');
@@ -113,7 +113,7 @@ td{padding:9px 8px;border-bottom:1px solid #eef1f7;vertical-align:top}td small{c
 .firma{margin-top:44px;width:260px}.firma img{max-width:220px;max-height:90px;display:block}.firma .l{border-top:1px solid #1B2559;padding-top:6px;font-size:13px}.firma small{color:#5f6b8a}
 footer{margin-top:40px;font-size:12px;color:#8f9bba}
 </style></head><body>
-<header><div><h1>${esc(negocio?.nombre || 'Ecoglobal')}</h1><p class="m">${esc(negocio?.telefono ? 'Tel. ' + negocio.telefono : '')}</p></div>
+<header><div><h1>${esc(negocio?.nombre || 'Publiinsumos')}</h1><p class="m">${esc(negocio?.telefono ? 'Tel. ' + negocio.telefono : '')}</p></div>
 <div class="doc"><b>${t.estado === 'cotizacion' ? 'Cotización' : 'Orden de trabajo'} ${esc(numeroT(t))}</b><span class="m">${fdate(t.fecha || today())}</span></div></header>
 <div class="cli"><h2>${esc(t.titulo || 'Trabajo personalizado')}</h2><p class="m">Cliente: ${esc(t.cliente || '—')}${t.sucursal ? ' · ' + esc(t.sucursal) : ''}${t.nit ? ' · NIT ' + esc(t.nit) : ''}${t.telefono ? ' · ' + esc(t.telefono) : ''}${t.entrega ? ' · Entrega: ' + fdate(t.entrega) : ''}</p></div>
 <table><thead><tr><th>#</th><th>Concepto</th><th class="n">Cant.</th><th class="n">Valor unitario</th><th class="n">Total</th></tr></thead><tbody>${filas}</tbody></table>

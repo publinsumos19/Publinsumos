@@ -1,4 +1,4 @@
--- Ecoglobal Caja: esquema completo de Supabase.
+-- Publiinsumos Caja: esquema completo de Supabase.
 -- Ejecútalo una sola vez en Supabase > SQL Editor > New query > Run.
 
 create extension if not exists pgcrypto;
@@ -604,7 +604,7 @@ end $$;
 -- Precios iniciales (tomados de CUADRE SEMANAL DIGITAL.xlsx)
 -- ============================================================
 insert into public.config_publica (id, datos) values (1, '{
-  "negocio": {"nombre": "Ecoglobal", "telefono": "", "pie": "¡Gracias por tu compra!", "indicativo": "57"},
+  "negocio": {"nombre": "Publiinsumos", "telefono": "", "pie": "¡Gracias por tu compra!", "indicativo": "57"},
   "tolerancia": 5,
   "cierreDia": 6,
   "ultimoContador": 196709,
@@ -687,7 +687,7 @@ begin
   exception when others then null;
   end;
   insert into respaldos (tipo, creado, datos)
-  values (p_tipo, ahora, jsonb_build_object('sistema', 'Ecoglobal Caja', 'creado', ahora, 'tablas', tablas))
+  values (p_tipo, ahora, jsonb_build_object('sistema', 'Publiinsumos Caja', 'creado', ahora, 'tablas', tablas))
   on conflict (tipo) do update set creado = excluded.creado, datos = excluded.datos;
   return ahora;
 end $$;
@@ -761,3 +761,8 @@ begin
     execute format('create trigger marcar_cambio after insert or update or delete on public.%I for each statement execute function public.marcar_cambio()', t);
   end loop;
 end $$;
+
+-- El negocio se llama Publiinsumos: corrige el nombre que traía la instalación inicial.
+update public.config_publica
+   set datos = jsonb_set(datos, '{negocio,nombre}', '"Publiinsumos"')
+ where id = 1 and datos->'negocio'->>'nombre' = 'Eco' || 'global';

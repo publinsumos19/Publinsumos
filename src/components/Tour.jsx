@@ -8,7 +8,7 @@ export const abrirTour = () => window.dispatchEvent(new Event('abrir-tour'));
 
 // What each part of the menu is for. Steps for screens the user can't open are skipped.
 const PASOS = [
-  { titulo: '¡Bienvenido a Ecoglobal Caja!', texto: 'Te muestro en un minuto dónde está cada cosa. Puedes saltar el tour cuando quieras y volver a verlo con el botón de ayuda (?).' },
+  { titulo: '¡Bienvenido a Publiinsumos!', texto: 'Te muestro en un minuto dónde está cada cosa. Puedes saltar el tour cuando quieras y volver a verlo con el botón de ayuda (?).' },
   { sel: 'menu', titulo: 'El menú', texto: 'En el celular, el menú está en este botón. Desde ahí entras a todas las pantallas.', soloMovil: true },
   { sel: 'nav/dashboard', titulo: 'Dashboard', texto: 'El resumen del negocio: ventas de hoy, de la semana y del mes, ganancia, cartera, gastos, utilidad y clics de la impresora.' },
   { sel: 'nav/vender', titulo: 'Vender', texto: 'Aquí registras cada venta: impresiones (el precio sale solo según papel, tamaño y cantidad) y productos de la tienda. Eliges cómo pagó: efectivo, Bancolombia, Nequi o crédito.' },

@@ -5,9 +5,9 @@ import { today } from '../format';
 import { toNum } from '../pricing';
 import { seedDb, USUARIOS } from './seed';
 
-const KEY = 'ecoglobal-demo-v8';
-const ROLE_KEY = 'ecoglobal-demo-rol';
-const SESSION_KEY = 'ecoglobal-demo-sesion';
+const KEY = 'publiinsumos-demo-v8';
+const ROLE_KEY = 'publiinsumos-demo-rol';
+const SESSION_KEY = 'publiinsumos-demo-sesion';
 export const DEMO_PASS = '123456';
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
 const now = () => new Date().toISOString();

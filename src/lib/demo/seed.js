@@ -9,8 +9,8 @@ import CATALOGO from './catalogo.json';
 import LAMINAS from './laminas.json';
 
 export const USUARIOS = {
-  admin: { id: 'u-admin', nombre: 'Administrador', email: 'admin@ecoglobal.co', rol: 'admin', activo: true, creado: '2026-01-02T12:00:00Z' },
-  vendedor: { id: 'u-vend', nombre: 'Laura Martínez', email: 'laura@ecoglobal.co', rol: 'vendedor', activo: true, creado: '2026-01-05T12:00:00Z' },
+  admin: { id: 'u-admin', nombre: 'Administrador', email: 'admin@publiinsumos.co', rol: 'admin', activo: true, creado: '2026-01-02T12:00:00Z' },
+  vendedor: { id: 'u-vend', nombre: 'Laura Martínez', email: 'laura@publiinsumos.co', rol: 'vendedor', activo: true, creado: '2026-01-05T12:00:00Z' },
 };
 
 const PRODUCTOS = [

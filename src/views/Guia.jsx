@@ -77,7 +77,7 @@ export default function Guia() {
             <Box display="grid" gridTemplateColumns="repeat(2, 10px)" gap="4px" aria-hidden>
               {['#06a3e3', '#e6297e', '#f5c200', '#ffffff'].map((c) => <Box key={c} w="10px" h="10px" borderRadius="50%" bg={c} />)}
             </Box>
-            <Text fontWeight="700" fontSize="lg">Ecoglobal Caja</Text>
+            <Text fontWeight="700" fontSize="lg">Publiinsumos Caja</Text>
           </Flex>
           <Text fontSize={{ base: '32px', md: '52px' }} fontWeight="800" lineHeight="1.05" maxW="760px">Guía de uso, paso a paso</Text>
           <Text fontSize={{ base: 'md', md: 'xl' }} opacity={0.9} mt="14px" maxW="680px">Todo lo que necesitas para vender, cotizar, controlar la caja y el inventario. Busca una pantalla o sigue el día a día.</Text>

@@ -1,4 +1,4 @@
--- Catálogo de publiinsumos de Ecoglobal (de COSTOS Y LISTA DE PRECIOS.xlsx), 214 productos.
+-- Catálogo de publiinsumos (de COSTOS Y LISTA DE PRECIOS.xlsx), 214 productos.
 -- Correr una vez en el SQL Editor de Supabase después de schema.sql. Si un producto ya existe con el mismo nombre, no se repite.
 -- El stock es el del último inventario del archivo; el día de arranque se corrige con "Conteo inicial" en Inventario.
 with datos(nombre, categoria, unidad, precio, costo, stock) as (values

@@ -42,7 +42,7 @@ export default function CarteraPrivada() {
   }, [conSaldo]);
 
   const recordar = (g) => {
-    const L = [`Hola ${g.cliente}, te saluda *${cfg?.negocio?.nombre || 'Ecoglobal'}*.`, 'Te compartimos el saldo de tus trabajos:', '',
+    const L = [`Hola ${g.cliente}, te saluda *${cfg?.negocio?.nombre || 'Publiinsumos'}*.`, 'Te compartimos el saldo de tus trabajos:', '',
       ...g.trabajos.map((t) => `• ${numeroT(t)} ${t.titulo}: ${money(t.saldo)}`), '', `*Total: ${money(g.saldo)}*`, '', 'Gracias por tu confianza.'];
     setMsg({ title: 'Recordatorio de saldo', text: L.join('\n'), tel: g.tel });
     share.onOpen();

@@ -10,7 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 function Brand() {
   const { cfg } = useAuth();
   const logoColor = useColorModeValue('navy.700', 'white');
-  const name = cfg?.negocio?.nombre || 'Ecoglobal';
+  const name = cfg?.negocio?.nombre || 'Publiinsumos';
   return (
     <Flex align="center" direction="column">
       <Flex align="center" gap="10px" my="32px">

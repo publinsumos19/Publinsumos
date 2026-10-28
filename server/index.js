@@ -1,4 +1,4 @@
-// Servidor de Ecoglobal Caja para Railway.
+// Servidor de Publiinsumos Caja para Railway.
 // Hace lo que Supabase hacía: crea la base de datos al arrancar, maneja las cuentas
 // (registro, inicio de sesión y sesiones) y publica la API de datos con PostgREST.
 // La app web (Vercel) le habla igual que a Supabase, así que no cambia nada en ella.
@@ -57,7 +57,7 @@ async function instalar() {
   SECRET = await ajuste('jwt_secret', () => crypto.randomBytes(48).toString('base64url'));
   const clave = await ajuste('authenticator_password', () => crypto.randomBytes(24).toString('hex'));
   await db.query(`alter role authenticator with login password '${clave.replace(/'/g, "''")}'`);
-  ANON = sign({ role: 'anon', iss: 'ecoglobal', exp: 4102444800 });
+  ANON = sign({ role: 'anon', iss: 'publiinsumos', exp: 4102444800 });
   return clave;
 }
 
@@ -170,7 +170,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x');
     if (url.pathname.startsWith('/rest/v1/')) return proxy(req, res, url.pathname.slice(8) + url.search);
     if (url.pathname.startsWith('/auth/v1/')) return await auth(req, res, url.pathname.slice(8), url);
-    if (url.pathname === '/' || url.pathname === '/salud') return send(res, 200, { ok: true, app: 'Ecoglobal Caja' });
+    if (url.pathname === '/' || url.pathname === '/salud') return send(res, 200, { ok: true, app: 'Publiinsumos Caja' });
     return send(res, 404, { message: 'Not found' });
   } catch (e) {
     console.error(e);
@@ -197,6 +197,6 @@ instalar()
     iniciarPostgrest(clave);
     respaldoNocturno();
     setInterval(respaldoNocturno, 60 * 1000);
-    server.listen(PORT, '0.0.0.0', () => console.log(`Ecoglobal Caja servidor listo en el puerto ${PORT}`));
+    server.listen(PORT, '0.0.0.0', () => console.log(`Publiinsumos Caja servidor listo en el puerto ${PORT}`));
   })
   .catch((e) => { console.error('No se pudo preparar la base de datos:', e); process.exit(1); });

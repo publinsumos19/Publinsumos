@@ -118,7 +118,7 @@ const rango = (R) => (R.desde === R.hasta ? fdate(R.desde) : `${fdate(R.desde)} 
 const difTxt = (d) => (Math.abs(d) < 1 ? 'Cuadra' : `${d > 0 ? 'Sobran' : 'Faltan'} ${money(Math.abs(d))}`);
 
 export function cierreText(negocio, R, tipo, extra = {}) {
-  const L = [`*${negocio?.nombre || 'Ecoglobal'}*`, `Cierre de caja ${tipo === 'semanal' ? 'semanal' : 'diario'} · ${rango(R)}`, ''];
+  const L = [`*${negocio?.nombre || 'Publiinsumos'}*`, `Cierre de caja ${tipo === 'semanal' ? 'semanal' : 'diario'} · ${rango(R)}`, ''];
   L.push(`*Ventas: ${money(R.ventas.total)}* (${R.ventas.n})`);
   for (const l of R.lineas) if (l.total) L.push(`• ${l.label}: ${money(l.total)}`);
   L.push('', '*Dinero recibido*');
@@ -225,16 +225,16 @@ tfoot td{font-weight:700;border-top:2px solid #1B2559}.nota{font-size:12px;color
 footer{margin-top:30px;font-size:11px;color:#8f9bba}
 @media print{body{padding:0}h2{break-after:avoid}table{break-inside:avoid}}
 </style></head><body>
-<header><div><h1>${esc(negocio?.nombre || 'Ecoglobal')} · ${extra._titulo || 'Cierre de caja'} ${tipo === 'semanal' ? 'semanal' : 'diario'}</h1><p>${esc(rango(R))}${extra.usuario ? ' · ' + esc(extra.usuario) : ''}</p></div><p>Generado el ${fdate(new Date().toISOString().slice(0, 10))}</p></header>
+<header><div><h1>${esc(negocio?.nombre || 'Publiinsumos')} · ${extra._titulo || 'Cierre de caja'} ${tipo === 'semanal' ? 'semanal' : 'diario'}</h1><p>${esc(rango(R))}${extra.usuario ? ' · ' + esc(extra.usuario) : ''}</p></div><p>Generado el ${fdate(new Date().toISOString().slice(0, 10))}</p></header>
 ${out.join('\n')}
-<footer>Ecoglobal Caja</footer>
+<footer>Publiinsumos Caja</footer>
 </body></html>`;
 }
 
 // Closing of the admin's private work only: what came in, what was quoted and who still owes.
 export function privadoText(negocio, R, tipo, extra = {}) {
   const P = R.privado;
-  const L = [`*${negocio?.nombre || 'Ecoglobal'}*`, `Cierre privado ${tipo === 'semanal' ? 'semanal' : 'diario'} · ${rango(R)}`, ''];
+  const L = [`*${negocio?.nombre || 'Publiinsumos'}*`, `Cierre privado ${tipo === 'semanal' ? 'semanal' : 'diario'} · ${rango(R)}`, ''];
   L.push(`*Recibido: ${money(P.recibido)}*`);
   for (const [m, v] of Object.entries(P.recibidoPor)) if (v) L.push(`• ${PAGOS[m]}: ${money(v)}`);
   for (const a of P.abonos) L.push(`  ${fdate(a.fecha)} · ${a.trabajos?.cliente || ''}: ${money(a.monto)}`);

@@ -36,7 +36,7 @@ export default function SistemaAjustes() {
     if (error || !data) return toast({ title: error ? errorMessage(error) : 'No hay copia todavía', status: 'error' });
     const dia = new Date(data.creado).toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
     try {
-      await saveFile(`ecoglobal-copia-${tipo === 'diario' ? '' : 'antes-reinicio-'}${dia}.json`, JSON.stringify(data), 'application/json');
+      await saveFile(`publiinsumos-copia-${tipo === 'diario' ? '' : 'antes-reinicio-'}${dia}.json`, JSON.stringify(data), 'application/json');
     } catch (e) { toast({ title: e.message, status: 'error' }); }
   };
   const copiarAhora = async () => {

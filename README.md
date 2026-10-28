@@ -1,4 +1,4 @@
-# Ecoglobal Caja
+# Publiinsumos Caja
 
 Aplicación web para un negocio de insumos de publicidad e impresión láser:
 
@@ -25,7 +25,7 @@ Tecnología: React + Vite, diseño basado en [Horizon UI](https://github.com/hor
 
 ## Instalación para un cliente nuevo
 
-Hay dos formas de instalarlo. La **opción A (GitHub + Railway + Vercel)** es la que usa Ecoglobal. La opción B usa Supabase en lugar de Railway.
+Hay dos formas de instalarlo. La **opción A (GitHub + Railway + Vercel)** es la que usa Publiinsumos. La opción B usa Supabase en lugar de Railway.
 
 ### Opción A: Railway (base de datos y servidor) + Vercel (la app)
 
@@ -54,7 +54,7 @@ Notas de esta opción:
 3. En **Authentication > Sign In / Providers > Email**:
    - Si quieres que las cuentas se puedan usar sin confirmar el correo, desactiva **Confirm email**.
    - Si lo dejas activo, cada persona debe abrir el enlace del correo antes de entrar.
-4. En **Authentication > URL Configuration**, pon en **Site URL** el dominio final del cliente (por ejemplo `https://caja.ecoglobal.com`).
+4. En **Authentication > URL Configuration**, pon en **Site URL** el dominio final del cliente (por ejemplo `https://caja.publiinsumos.com`).
 5. En **Project Settings > API** copia:
    - **Project URL**, que va en `VITE_SUPABASE_URL`.
    - **anon public key**, que va en `VITE_SUPABASE_ANON_KEY`.

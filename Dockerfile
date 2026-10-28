@@ -1,4 +1,4 @@
-# Servidor de Ecoglobal Caja para Railway (base de datos, cuentas y API).
+# Servidor de Publiinsumos Caja para Railway (base de datos, cuentas y API).
 # La app web se publica aparte en Vercel; este contenedor no la incluye.
 FROM node:20-bookworm-slim
 ARG POSTGREST_VERSION=v12.2.3
