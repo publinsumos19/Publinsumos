@@ -129,11 +129,11 @@ export default function Dashboard() {
   if (!isAdmin) {
     return (
       <Flex direction="column" gap="20px">
-        <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap="20px">
-          <MiniStatistics icon={MdAttachMoney} name="Ventas de hoy (tienda)" value={money(sumT(deHoy))} help={`${deHoy.length} ventas`} />
-          <MiniStatistics icon={MdCalendarToday} name="Mis ventas de hoy" value={money(sumT(mias))} help={`${mias.length} ventas`} tone="green" />
-          <MiniStatistics icon={MdAccountBalanceWallet} name="Cartera del negocio" value={money(porCobrar)} tone="orange" />
-          <MiniStatistics icon={MdRequestQuote} name="Cotizaciones abiertas" value={abiertas.length} help={money(abiertas.reduce((a, t) => a + toNum(t.total), 0))} />
+        <SimpleGrid columns={{ base: 2, xl: 4 }} gap="12px">
+          <MiniStatistics compact icon={MdAttachMoney} name="Ventas de hoy (tienda)" value={money(sumT(deHoy))} help={`${deHoy.length} ventas`} />
+          <MiniStatistics compact icon={MdCalendarToday} name="Mis ventas de hoy" value={money(sumT(mias))} help={`${mias.length} ventas`} tone="green" />
+          <MiniStatistics compact icon={MdAccountBalanceWallet} name="Cartera del negocio" value={money(porCobrar)} tone="orange" />
+          <MiniStatistics compact icon={MdRequestQuote} name="Cotizaciones abiertas" value={abiertas.length} help={money(abiertas.reduce((a, t) => a + toNum(t.total), 0))} />
         </SimpleGrid>
         <Panel title="Ventas de los últimos 7 días"><Box h="240px"><Chart type="area" height="100%" width="100%" options={area.options} series={area.series} /></Box></Panel>
         <SimpleGrid columns={{ base: 1, xl: 2 }} gap="20px" alignItems="start">
@@ -149,17 +149,17 @@ export default function Dashboard() {
   const G = resumenGastos(gastos.data || []);
   return (
     <Flex direction="column" gap="20px">
-      <SimpleGrid columns={{ base: 1, md: 2, xl: 3, '2xl': 5 }} gap="20px">
-        <MiniStatistics icon={MdAttachMoney} name="Ventas de hoy" value={money(sumT(deHoy))} help={`${deHoy.length} ventas`} />
-        <MiniStatistics icon={MdDateRange} name="Esta semana" value={money(sumT(semana))} help={`${semana.length} ventas desde el lunes`} />
-        <MiniStatistics icon={MdCalendarToday} name="Este mes" value={money(sumT(delMes))} help={`${delMes.length} ventas`} />
-        <MiniStatistics icon={MdTrendingUp} name="Ganancia del mes" value={money(ganMes)} help={`${sumT(delMes) ? Math.round((ganMes / sumT(delMes)) * 100) : 0}% sobre ventas`} tone="green" />
-        <MiniStatistics icon={MdAccountBalanceWallet} name="Cartera del negocio" value={money(porCobrar)} help={`${(cartera.data || []).length} ventas con saldo`} tone="orange" />
-        <MiniStatistics icon={MdLock} name="Cartera privada" value={money(privado)} help="Trabajos personalizados" tone="purple" />
-        <MiniStatistics icon={MdBuild} name="Trabajos en curso" value={enCurso.length} help={`${abiertas.length} cotizaciones abiertas`} />
-        <MiniStatistics icon={MdMoneyOff} name="Gastos del mes" value={money(G.total)} help={`${G.n} gastos · efectivo ${money(G.por.efectivo)}`} tone="red" />
-        <MiniStatistics icon={MdSavings} name="Utilidad del mes" value={money(ganMes - G.total)} help="Ganancia menos gastos" tone={ganMes - G.total < 0 ? 'red' : 'green'} />
-        <MiniStatistics icon={MdPrint} name="Clics del mes" value={intf(clics(true) + clics(false))} help={`Color ${intf(clics(true))} · B/N ${intf(clics(false))}`} />
+      <SimpleGrid columns={{ base: 2, md: 3, lg: 4, xl: 5 }} gap="12px">
+        <MiniStatistics compact icon={MdAttachMoney} name="Ventas de hoy" value={money(sumT(deHoy))} help={`${deHoy.length} ventas`} />
+        <MiniStatistics compact icon={MdDateRange} name="Esta semana" value={money(sumT(semana))} help={`${semana.length} ventas desde el lunes`} />
+        <MiniStatistics compact icon={MdCalendarToday} name="Este mes" value={money(sumT(delMes))} help={`${delMes.length} ventas`} />
+        <MiniStatistics compact icon={MdTrendingUp} name="Ganancia del mes" value={money(ganMes)} help={`${sumT(delMes) ? Math.round((ganMes / sumT(delMes)) * 100) : 0}% sobre ventas`} tone="green" />
+        <MiniStatistics compact icon={MdAccountBalanceWallet} name="Cartera del negocio" value={money(porCobrar)} help={`${(cartera.data || []).length} ventas con saldo`} tone="orange" />
+        <MiniStatistics compact icon={MdLock} name="Cartera privada" value={money(privado)} help="Trabajos personalizados" tone="purple" />
+        <MiniStatistics compact icon={MdBuild} name="Trabajos en curso" value={enCurso.length} help={`${abiertas.length} cotizaciones abiertas`} />
+        <MiniStatistics compact icon={MdMoneyOff} name="Gastos del mes" value={money(G.total)} help={`${G.n} gastos · efectivo ${money(G.por.efectivo)}`} tone="red" />
+        <MiniStatistics compact icon={MdSavings} name="Utilidad del mes" value={money(ganMes - G.total)} help="Ganancia menos gastos" tone={ganMes - G.total < 0 ? 'red' : 'green'} />
+        <MiniStatistics compact icon={MdPrint} name="Clics del mes" value={intf(clics(true) + clics(false))} help={`Color ${intf(clics(true))} · B/N ${intf(clics(false))}`} />
       </SimpleGrid>
 
       <Panel title="Ventas de los últimos 30 días"><Box h="260px"><Chart type="area" height="100%" width="100%" options={area.options} series={area.series} /></Box></Panel>
