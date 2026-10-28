@@ -766,3 +766,45 @@ end $$;
 update public.config_publica
    set datos = jsonb_set(datos, '{negocio,nombre}', '"Publiinsumos"')
  where id = 1 and datos->'negocio'->>'nombre' = 'Eco' || 'global';
+
+-- Restaura una copia descargada (el archivo .json): reemplaza todos los datos del
+-- sistema por los de la copia. Antes guarda una copia 'antes_restaurar' de lo actual.
+create or replace function public.restaurar_respaldo(p_datos jsonb, p_confirma text) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  orden text[] := array['config_publica', 'config_costos', 'perfiles', 'productos', 'producto_costos', 'clientes', 'ventas', 'venta_costos', 'abonos',
+    'contador', 'trabajos', 'trabajo_costos', 'trabajo_abonos', 'cierres', 'aperturas', 'gastos', 'conteos'];
+  t text;
+  cols text;
+  tablas jsonb := p_datos->'tablas';
+  s record;
+begin
+  if not public.es_admin() then raise exception 'Solo el administrador puede restaurar copias'; end if;
+  if p_confirma is distinct from 'RESTAURAR' then raise exception 'Escribe RESTAURAR para confirmar'; end if;
+  if tablas is null or jsonb_typeof(tablas->'productos') is distinct from 'array' or jsonb_typeof(tablas->'perfiles') is distinct from 'array' then
+    raise exception 'El archivo no es una copia de seguridad de este sistema';
+  end if;
+  perform public.hacer_respaldo('antes_restaurar');
+  -- Las cuentas de la copia vuelven con su misma contraseña (las demás se quedan, sin perfil).
+  if jsonb_typeof(tablas->'auth.users') = 'array' then
+    insert into auth.users (id, email, encrypted_password, raw_user_meta_data, created_at)
+    select u.id, u.email, u.encrypted_password, coalesce(u.raw_user_meta_data, '{}'), coalesce(u.created_at, now())
+      from jsonb_to_recordset(tablas->'auth.users') as u(id uuid, email text, encrypted_password text, raw_user_meta_data jsonb, created_at timestamptz)
+    on conflict (id) do update set email = excluded.email, encrypted_password = excluded.encrypted_password, raw_user_meta_data = excluded.raw_user_meta_data;
+  end if;
+  execute 'truncate table ' || (select string_agg(format('public.%I', x), ', ') from unnest(orden) x) || ' cascade';
+  foreach t in array orden loop
+    if jsonb_typeof(tablas->t) = 'array' and jsonb_array_length(tablas->t) > 0 then
+      select string_agg(format('%I', column_name), ', ' order by ordinal_position) into cols
+        from information_schema.columns where table_schema = 'public' and table_name = t and is_generated = 'NEVER';
+      execute format('insert into public.%I (%s) select %s from jsonb_populate_recordset(null::public.%I, $1)', t, cols, cols, t) using tablas->t;
+    end if;
+  end loop;
+  -- La numeración sigue desde el último número restaurado.
+  for s in select c.table_name, c.column_name, pg_get_serial_sequence(format('public.%I', c.table_name), c.column_name) seq
+             from information_schema.columns c where c.table_schema = 'public' and c.table_name = any(orden)
+              and pg_get_serial_sequence(format('public.%I', c.table_name), c.column_name) is not null loop
+    execute format('select setval(%L, coalesce((select max(%I) from public.%I), 0) + 1, false)', s.seq, s.column_name, s.table_name);
+  end loop;
+  insert into cambios (tabla, n) select x, 1 from unnest(orden) x on conflict (tabla) do update set n = cambios.n + 1;
+end $$;

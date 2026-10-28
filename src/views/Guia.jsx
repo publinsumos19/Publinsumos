@@ -41,7 +41,7 @@ const PREGUNTAS = [
   ['¿Qué ve el vendedor y qué ve el administrador?', 'El vendedor vende, cotiza, registra gastos, abonos y su cierre diario. No ve costos, ganancias, la cartera privada, reportes, ajustes ni usuarios.'],
   ['¿Qué pasa si se va el internet?', 'El sistema funciona en línea. Si se cae la conexión, espera a que vuelva y repite la última acción; nada se guarda a medias.'],
   ['¿Las pantallas se actualizan solas?', 'Sí. Si el vendedor registra una venta, el administrador la ve en pocos segundos sin recargar.'],
-  ['¿Hay copia de seguridad?', 'Sí. Todas las noches a las 11:30 p. m. se guarda una copia completa que reemplaza la anterior. El administrador la descarga en Ajustes cuando quiera, por ejemplo cada fin de semana.'],
+  ['¿Hay copia de seguridad?', 'Sí. Todas las noches a las 11:30 p. m. se guarda una copia completa que reemplaza la anterior. El administrador la descarga en Ajustes cuando quiera, por ejemplo cada fin de semana. Si algo pasa, en Ajustes → Restaurar copia se sube ese archivo y el sistema vuelve a quedar como estaba.'],
   ['Olvidé mi contraseña', 'Pídele al administrador que te ponga una nueva en Usuarios → Cambiar contraseña.'],
   ['¿Cómo empiezo de cero después de las pruebas?', 'En Ajustes → Reiniciar sistema en ceros. Se borran ventas, cotizaciones, cierres y gastos de prueba, y se conservan clientes, inventario, usuarios y precios.'],
 ];

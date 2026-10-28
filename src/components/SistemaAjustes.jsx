@@ -1,15 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Button, Flex, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, Text, useColorModeValue, useToast,
 } from '@chakra-ui/react';
-import { MdDownload, MdRestartAlt, MdBackup } from 'react-icons/md';
+import { MdDownload, MdRestartAlt, MdBackup, MdUpload } from 'react-icons/md';
 import Card from './card/Card';
 import { TextIn } from './Field';
 import { notifyChange } from '../hooks/useLive';
 import { supabase, errorMessage, isDemo } from '../lib/supabase';
 import { saveFile } from '../lib/export';
 
-const NOMBRES = { diario: 'Copia diaria', antes_reinicio: 'Copia antes de reiniciar' };
+const NOMBRES = { diario: 'Copia diaria', antes_reinicio: 'Copia antes de reiniciar', antes_restaurar: 'Copia antes de restaurar' };
 const fechaHora = (s) => new Date(s).toLocaleString('es-CO', { timeZone: 'America/Bogota', dateStyle: 'medium', timeStyle: 'short' });
 const tam = (b) => (b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1e3))} KB`);
 
@@ -21,6 +21,9 @@ export default function SistemaAjustes() {
   const [busy, setBusy] = useState('');
   const [reinicio, setReinicio] = useState(false);
   const [texto, setTexto] = useState('');
+  const [archivo, setArchivo] = useState(null);
+  const [texto2, setTexto2] = useState('');
+  const input = useRef(null);
 
   const cargar = async () => {
     if (isDemo) return;
@@ -58,6 +61,28 @@ export default function SistemaAjustes() {
     cargar();
   };
 
+  // Restore: read the downloaded .json and replace all data with it.
+  const elegirArchivo = async (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      const datos = JSON.parse(await f.text());
+      if (!datos?.tablas?.productos || !datos?.tablas?.perfiles) throw new Error();
+      setArchivo({ nombre: f.name, datos });
+    } catch { toast({ title: 'Ese archivo no es una copia de seguridad del sistema', status: 'error' }); }
+  };
+  const restaurar = async () => {
+    setBusy('restaurar');
+    const { error } = await supabase.rpc('restaurar_respaldo', { p_datos: archivo.datos, p_confirma: texto2.trim().toUpperCase() });
+    setBusy('');
+    if (error) return toast({ title: errorMessage(error), status: 'error', duration: 8000 });
+    setArchivo(null); setTexto2('');
+    toast({ title: 'Copia restaurada', description: 'El sistema quedó como estaba en esa copia.', status: 'success', duration: 6000 });
+    setTimeout(() => window.location.reload(), 1200);
+  };
+  const cuenta = (t) => archivo?.datos?.tablas?.[t]?.length || 0;
+
   if (isDemo) return null;
   return (
     <Card>
@@ -78,8 +103,35 @@ export default function SistemaAjustes() {
       </Flex>
       <Flex gap="10px" wrap="wrap">
         <Button variant="light" leftIcon={<MdBackup />} isLoading={busy === 'ahora'} onClick={copiarAhora}>Hacer copia ahora</Button>
+        <Button variant="light" leftIcon={<MdUpload />} onClick={() => input.current?.click()}>Restaurar copia</Button>
+        <input ref={input} type="file" accept=".json,application/json" hidden onChange={elegirArchivo} />
         <Button variant="outline" colorScheme="red" leftIcon={<MdRestartAlt />} onClick={() => setReinicio(true)}>Reiniciar sistema en ceros</Button>
       </Flex>
+      <Text fontSize="xs" color="secondaryGray.600" mt="8px">Si algo pasa, presiona «Restaurar copia» y sube el archivo .json que descargaste: el sistema vuelve a quedar como estaba ese día.</Text>
+
+      <Modal isOpen={!!archivo} onClose={() => setArchivo(null)} isCentered>
+        <ModalOverlay />
+        <ModalContent borderRadius="20px" mx="12px">
+          <ModalHeader>Restaurar copia de seguridad</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {archivo && (
+              <>
+                <Text fontSize="sm" mb="8px"><b>{archivo.nombre}</b>{archivo.datos.creado ? ` · copia del ${fechaHora(archivo.datos.creado)}` : ''}</Text>
+                <Text fontSize="sm" mb="8px">Trae {cuenta('ventas')} ventas, {cuenta('clientes')} clientes, {cuenta('productos')} productos, {cuenta('trabajos')} cotizaciones y {cuenta('perfiles')} usuarios.</Text>
+                <Text fontSize="sm" mb="8px"><b>Todos los datos actuales se reemplazan</b> por los de esta copia. Lo que se haya registrado después de esa fecha se pierde.</Text>
+                <Text fontSize="sm" mb="12px">Antes de reemplazar se guarda una «copia antes de restaurar» con lo que hay hoy, por si te arrepientes.</Text>
+                <Text fontSize="sm" fontWeight="700" mb="6px">Escribe RESTAURAR para confirmar</Text>
+                <TextIn value={texto2} onChange={(e) => setTexto2(e.target.value)} placeholder="RESTAURAR" autoFocus />
+              </>
+            )}
+          </ModalBody>
+          <ModalFooter gap="10px">
+            <Button variant="light" onClick={() => setArchivo(null)}>Cancelar</Button>
+            <Button colorScheme="red" isDisabled={texto2.trim().toUpperCase() !== 'RESTAURAR'} isLoading={busy === 'restaurar'} onClick={restaurar}>Restaurar</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       <Modal isOpen={reinicio} onClose={() => setReinicio(false)} isCentered>
         <ModalOverlay />
