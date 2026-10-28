@@ -11,7 +11,7 @@ import { supabase, errorMessage } from '../lib/supabase';
 import { fdate, money, PAGOS, PAGOS_ABONO, PAGOS_VENTA, today } from '../lib/format';
 import { toNum } from '../lib/pricing';
 import {
-  CONCEPTOS_BASE, ESTADOS, cotizacionCfg, lineaTotal, netoTrabajo, numeroT, retencionValor, subtotal, sumarHabiles, totalTrabajo, trabajoHtml, trabajoText,
+  CONCEPTOS_BASE, ESTADOS, cotizacionCfg, lineaTotal, netoTrabajo, numeroT, retencionValor, subtotal, sumarHabiles, contarHabiles, totalTrabajo, trabajoHtml, trabajoText,
 } from '../lib/trabajo';
 import { margenDe, precioConMargen } from '../lib/margen';
 import Segmented from './Segmented';
@@ -37,7 +37,7 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
   const q = cotizacionCfg(cfg);
   const [t, setT] = useState(() => ({
     cliente: '', telefono: '', titulo: '', entrega: '', nota: '', descuento: 0, estado: 'cotizacion', privado: isAdmin, abonado: 0,
-    nit: '', forma_pago: '', saldo_a: '', instalacion: 'sin', dias_entrega: trabajo?.id ? '' : q.diasSin, entrega: trabajo?.id ? '' : sumarHabiles(today(), q.diasSin), retenciones: [], enviada: null,
+    nit: '', forma_pago: '', saldo_a: '', instalacion: 'sin', dias_entrega: trabajo?.id ? '' : q.diasSin, entrega: trabajo?.id ? '' : sumarHabiles(today(), q.diasSin), retenciones: [], enviada: null, sucursal: '',
     ...trabajo,
     condiciones: trabajo?.condiciones ?? q.condiciones,
     lineas: trabajo?.lineas?.length ? trabajo.lineas.map((l) => ({ ...l })) : [nueva()],
@@ -95,10 +95,11 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
   const setConcepto = (i, v) => setT({ ...t, lineas: t.lineas.map((l, j) => (j === i ? { ...l, concepto: v, producto_id: null } : l)) });
   const setPu = (i, v) => { setL(i, 'pu', v); const m = [...margenes]; m[i] = margenDe(costos[i], v); setMargenes(m); };
 
+  const sucursales = (clientes.data || []).find((x) => x.nombre === t.cliente)?.sucursales || [];
   const pickCliente = (nombre) => {
     const c = (clientes.data || []).find((x) => x.nombre === nombre);
-    if (!c) return setT({ ...t, cliente: nombre });
-    setT({ ...t, cliente: nombre, telefono: t.telefono || c.telefono || '', nit: c.nit || t.nit || '', forma_pago: c.forma_pago || t.forma_pago, saldo_a: c.saldo_a || t.saldo_a });
+    if (!c) return setT({ ...t, cliente: nombre, sucursal: '' });
+    setT({ ...t, cliente: nombre, sucursal: '', telefono: t.telefono || c.telefono || '', nit: c.nit || t.nit || '', forma_pago: c.forma_pago || t.forma_pago, saldo_a: c.saldo_a || t.saldo_a });
   };
   // Installation changes the usual delivery time; the delivery date follows the working days.
   const setEntregaDias = (dias, extra = {}) => {
@@ -127,7 +128,7 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
       descuento: toNum(t.descuento), lineas, total: tot, saldo: vivo ? tot - retencion - toNum(t.abonado) : 0, privado,
       nit: (t.nit || '').trim(), forma_pago: t.forma_pago || null, saldo_a: t.forma_pago === 'anticipo50' ? (t.saldo_a || '').trim() : '',
       instalacion: t.instalacion || 'sin', dias_entrega: toNum(t.dias_entrega) || null, condiciones: (t.condiciones || '').trim(),
-      retenciones, retencion, enviada: t.enviada || null,
+      retenciones, retencion, enviada: t.enviada || null, sucursal: t.sucursal || '',
     };
   };
 
@@ -244,8 +245,15 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
               <Field label="Instalación">
                 <Segmented value={t.instalacion || 'sin'} onChange={(v) => editable && setInstalacion(v)} options={[['sin', 'Sin instalación'], ['con', 'Con instalación']]} />
               </Field>
-              <Field label="Tiempo de entrega (días hábiles)"><NumIn min={0} value={t.dias_entrega ?? ''} onChange={(e) => setEntregaDias(e.target.value)} isDisabled={!editable} placeholder={String(t.instalacion === 'con' ? q.diasCon : q.diasSin)} /></Field>
-              <Field label="Fecha de entrega"><TextIn type="date" value={t.entrega || ''} onChange={(e) => setT({ ...t, entrega: e.target.value })} isDisabled={!editable} /></Field>
+              <Field label="Fecha de entrega">
+                <TextIn type="date" value={t.entrega || ''} onChange={(e) => setT({ ...t, entrega: e.target.value, dias_entrega: contarHabiles(t.fecha || today(), e.target.value) })} isDisabled={!editable} />
+              </Field>
+              {!!sucursales.length && (
+                <Field label="Sucursal">
+                  <Sel value={t.sucursal || ''} onChange={(e) => setT({ ...t, sucursal: e.target.value })} isDisabled={!editable}
+                    options={[['', 'Sede principal'], ...sucursales.map((x) => [x.nombre, x.nombre])]} />
+                </Field>
+              )}
             </SimpleGrid>
             <Field label="Forma de pago del cliente">
               <FormaPagoPicker forma={t.forma_pago} saldoA={t.saldo_a} isDisabled={!editable} onChange={({ forma, saldoA }) => setT({ ...t, forma_pago: forma, saldo_a: saldoA })} />

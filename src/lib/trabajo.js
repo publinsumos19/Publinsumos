@@ -53,9 +53,19 @@ export function sumarHabiles(desde, n) {
   return d.toISOString().slice(0, 10);
 }
 
+// Working days (Monday to Saturday) from one date to a later one.
+export function contarHabiles(desde, hasta) {
+  if (!desde || !hasta || hasta <= desde) return 0;
+  const d = new Date(desde + 'T12:00:00');
+  const fin = new Date(hasta + 'T12:00:00');
+  let k = 0;
+  while (d < fin) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0) k += 1; }
+  return k;
+}
+
 export function trabajoText(negocio, t) {
   const L = [`*${negocio?.nombre || 'Ecoglobal'}*`, `${t.estado === 'cotizacion' ? 'Cotización' : 'Trabajo'} ${numeroT(t)} · ${fdate(t.fecha || today())}`];
-  if (t.cliente) L.push(`Cliente: ${t.cliente}`);
+  if (t.cliente) L.push(`Cliente: ${t.cliente}${t.sucursal ? ` · ${t.sucursal}` : ''}`);
   if (t.titulo) L.push(`*${t.titulo}*`);
   L.push('');
   for (const l of t.lineas || []) {
@@ -105,7 +115,7 @@ footer{margin-top:40px;font-size:12px;color:#8f9bba}
 </style></head><body>
 <header><div><h1>${esc(negocio?.nombre || 'Ecoglobal')}</h1><p class="m">${esc(negocio?.telefono ? 'Tel. ' + negocio.telefono : '')}</p></div>
 <div class="doc"><b>${t.estado === 'cotizacion' ? 'Cotización' : 'Orden de trabajo'} ${esc(numeroT(t))}</b><span class="m">${fdate(t.fecha || today())}</span></div></header>
-<div class="cli"><h2>${esc(t.titulo || 'Trabajo personalizado')}</h2><p class="m">Cliente: ${esc(t.cliente || '—')}${t.nit ? ' · NIT ' + esc(t.nit) : ''}${t.telefono ? ' · ' + esc(t.telefono) : ''}${t.entrega ? ' · Entrega: ' + fdate(t.entrega) : ''}</p></div>
+<div class="cli"><h2>${esc(t.titulo || 'Trabajo personalizado')}</h2><p class="m">Cliente: ${esc(t.cliente || '—')}${t.sucursal ? ' · ' + esc(t.sucursal) : ''}${t.nit ? ' · NIT ' + esc(t.nit) : ''}${t.telefono ? ' · ' + esc(t.telefono) : ''}${t.entrega ? ' · Entrega: ' + fdate(t.entrega) : ''}</p></div>
 <table><thead><tr><th>#</th><th>Concepto</th><th class="n">Cant.</th><th class="n">Valor unitario</th><th class="n">Total</th></tr></thead><tbody>${filas}</tbody></table>
 <div class="tot">${toNum(t.descuento) ? `<div><span>Subtotal</span><span>${money(subtotal(t.lineas))}</span></div><div><span>Descuento</span><span>-${money(t.descuento)}</span></div>` : ''}
 <div class="g"><span>Total</span><span>${money(total)}</span></div>

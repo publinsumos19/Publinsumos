@@ -135,10 +135,14 @@ export default function Recordatorios() {
                   ))}
                 </Grupo>
               )}
-              <Divider />
-              <Text fontSize="xs" color="secondaryGray.600">
-                Verde: hay tiempo. Amarillo: ya pasó buena parte del plazo. Rojo: entrega cercana o vencida, o deuda muy atrasada.{isAdmin ? ' Los días se ajustan en Ajustes.' : ''}
-              </Text>
+              {!!(r.entregas.length || r.cartera.length || r.privada.length) && (
+                <>
+                  <Divider />
+                  <Text fontSize="xs" color="secondaryGray.600">
+                    Verde: hay tiempo. Amarillo: ya pasó buena parte del plazo. Rojo: entrega cercana o vencida, o deuda muy atrasada.{isAdmin ? ' Los días se ajustan en Ajustes.' : ''}
+                  </Text>
+                </>
+              )}
             </Flex>
           )}
         </ModalBody>

@@ -235,6 +235,10 @@ alter table public.trabajos add column if not exists retenciones jsonb not null 
 alter table public.trabajos add column if not exists retencion numeric not null default 0;
 alter table public.trabajos add column if not exists enviada date;
 
+-- Versión 4: sucursales de cada cliente y la sucursal de cada cotización.
+alter table public.clientes add column if not exists sucursales jsonb not null default '[]';
+alter table public.trabajos add column if not exists sucursal text not null default '';
+
 alter table public.cierres add column if not exists ambito text not null default 'tienda';
 alter table public.cierres add column if not exists base_impresion numeric;
 alter table public.cierres add column if not exists base_insumos numeric;

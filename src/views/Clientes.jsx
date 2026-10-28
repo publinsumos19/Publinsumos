@@ -22,7 +22,7 @@ export default function Clientes() {
     for (const v of deudas.data || []) { const k = v.cliente_id || (v.cliente || '').toLowerCase(); m[k] = (m[k] || 0) + toNum(v.saldo); }
     return m;
   }, [deudas.data]);
-  const rows = (clientes.data || []).filter((c) => !q || `${c.nombre} ${c.nit || ''} ${c.telefono || ''}`.toLowerCase().includes(q.toLowerCase()));
+  const rows = (clientes.data || []).filter((c) => !q || `${c.nombre} ${c.nit || ''} ${c.telefono || ''} ${(c.sucursales || []).map((s) => s.nombre).join(' ')}`.toLowerCase().includes(q.toLowerCase()));
   return (
     <Card>
       <Flex align="center" gap="10px" wrap="wrap" mb="12px">
@@ -35,7 +35,7 @@ export default function Clientes() {
       </Flex>
       <DataTable rows={rows} onRowClick={(c) => setEdit(c)} empty="Aún no hay clientes."
         columns={[
-          { key: 'nombre', label: 'Cliente', render: (c) => <><Text fontWeight="600">{c.nombre}</Text><Text fontSize="xs" color="secondaryGray.600">{[c.nit && `NIT ${c.nit}`, c.telefono].filter(Boolean).join(' · ')}</Text></> },
+          { key: 'nombre', label: 'Cliente', render: (c) => <><Text fontWeight="600">{c.nombre}</Text><Text fontSize="xs" color="secondaryGray.600">{[c.nit && `NIT ${c.nit}`, c.telefono, c.sucursales?.length && `${c.sucursales.length} sucursal${c.sucursales.length === 1 ? '' : 'es'}`].filter(Boolean).join(' · ')}</Text></> },
           { key: 'forma', label: 'Forma de pago', render: (c) => (c.forma_pago ? <Badge colorScheme={c.forma_pago === 'convenir' ? 'gray' : c.forma_pago === 'anticipo50' ? 'purple' : 'blue'} whiteSpace="normal">{formaPagoTxt(c.forma_pago, c.saldo_a)}</Badge> : <Text fontSize="sm" color="secondaryGray.600">Sin definir</Text>) },
           { key: 'saldo', label: 'Debe', num: true, render: (c) => { const s = saldoDe[c.id] || 0; return s ? <Text fontWeight="700" color="orange.500">{money(s)}</Text> : '—'; } },
         ]} />

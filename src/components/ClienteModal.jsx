@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { MdAdd, MdClose } from 'react-icons/md';
 import {
-  Button, Checkbox, Flex, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, SimpleGrid, Text, Wrap, WrapItem, useToast,
+  Box, Button, Checkbox, Flex, IconButton, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, SimpleGrid, Text, Wrap, WrapItem, useToast,
 } from '@chakra-ui/react';
 import { Field, TextIn } from './Field';
 import { notifyChange } from '../hooks/useLive';
@@ -27,13 +28,15 @@ export function FormaPagoPicker({ forma, saldoA, onChange, isDisabled }) {
 
 export default function ClienteModal({ cliente, onClose }) {
   const toast = useToast();
-  const [c, setC] = useState(() => ({ nombre: '', telefono: '', nit: '', correo: '', direccion: '', forma_pago: 'convenir', saldo_a: '', ...cliente }));
+  const [c, setC] = useState(() => ({ nombre: '', telefono: '', nit: '', correo: '', direccion: '', forma_pago: 'convenir', saldo_a: '', ...cliente, sucursales: cliente?.sucursales || [] }));
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setC({ ...c, [k]: e.target.value });
+  const setSuc = (i, k) => (e) => setC({ ...c, sucursales: c.sucursales.map((s, j) => (j === i ? { ...s, [k]: e.target.value } : s)) });
   const guardar = async () => {
     if (!c.nombre.trim()) return toast({ title: 'Escribe el nombre del cliente', status: 'warning' });
     setBusy(true);
-    const row = { nombre: c.nombre.trim(), telefono: c.telefono.trim(), nit: c.nit.trim(), correo: c.correo.trim(), direccion: c.direccion.trim(), forma_pago: c.forma_pago || null, saldo_a: c.forma_pago === 'anticipo50' ? c.saldo_a.trim() : '' };
+    const row = { nombre: c.nombre.trim(), telefono: c.telefono.trim(), nit: c.nit.trim(), correo: c.correo.trim(), direccion: c.direccion.trim(), forma_pago: c.forma_pago || null, saldo_a: c.forma_pago === 'anticipo50' ? c.saldo_a.trim() : '',
+      sucursales: c.sucursales.map((s) => ({ nombre: s.nombre.trim(), direccion: (s.direccion || '').trim(), telefono: (s.telefono || '').trim() })).filter((s) => s.nombre) };
     const { error } = c.id ? await supabase.from('clientes').update(row).eq('id', c.id) : await supabase.from('clientes').insert(row);
     setBusy(false);
     if (error) return toast({ title: errorMessage(error), status: 'error' });
@@ -56,6 +59,20 @@ export default function ClienteModal({ cliente, onClose }) {
               <Field label="Correo (opcional)"><TextIn value={c.correo || ''} onChange={set('correo')} type="email" /></Field>
               <Field label="Dirección (opcional)" gridColumn={{ md: 'span 2' }}><TextIn value={c.direccion || ''} onChange={set('direccion')} /></Field>
             </SimpleGrid>
+            <Box>
+              <Text fontSize="sm" fontWeight="700" mb="6px">Sucursales</Text>
+              <Flex direction="column" gap="8px">
+                {c.sucursales.map((s, i) => (
+                  <Flex key={i} gap="8px" align="center" direction={{ base: 'column', md: 'row' }}>
+                    <TextIn value={s.nombre} onChange={setSuc(i, 'nombre')} placeholder="Nombre (ej. Sede Norte)" />
+                    <TextIn value={s.direccion || ''} onChange={setSuc(i, 'direccion')} placeholder="Dirección" />
+                    <TextIn value={s.telefono || ''} onChange={setSuc(i, 'telefono')} placeholder="Teléfono" inputMode="tel" />
+                    <IconButton aria-label="Quitar sucursal" icon={<MdClose />} variant="ghost" size="sm" onClick={() => setC({ ...c, sucursales: c.sucursales.filter((_, j) => j !== i) })} />
+                  </Flex>
+                ))}
+                <Button alignSelf="flex-start" size="sm" variant="lightBrand" leftIcon={<MdAdd />} onClick={() => setC({ ...c, sucursales: [...c.sucursales, { nombre: '', direccion: '', telefono: '' }] })}>Agregar sucursal</Button>
+              </Flex>
+            </Box>
             <Field label="¿Cómo paga este cliente?">
               <FormaPagoPicker forma={c.forma_pago} saldoA={c.saldo_a} onChange={({ forma, saldoA }) => setC({ ...c, forma_pago: forma, saldo_a: saldoA })} />
             </Field>
