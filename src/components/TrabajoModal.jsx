@@ -49,6 +49,7 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
   const [margenes, setMargenes] = useState([]);
   // Admin only: cost of each part of a composite product, one list per line.
   const [compCostos, setCompCostos] = useState([]);
+  const [compMargenes, setCompMargenes] = useState([]);
   const [abiertos, setAbiertos] = useState({});
   const [oc, setOc] = useState('');
   const productos = useLive(() => supabase.from('productos').select('*').order('nombre'), ['productos']);
@@ -68,6 +69,7 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
       const c = data?.costos || [];
       setCostos(c);
       setCompCostos(data?.componentes || []);
+      setCompMargenes((trabajo.lineas || []).map((l, i) => (l.componentes || []).map((x, k) => margenDe(data?.componentes?.[i]?.[k], x.pu))));
       setMargenes((trabajo.lineas || []).map((l, i) => margenDe(c[i], l.pu)));
     });
   }, [isAdmin, trabajo?.id]);
@@ -80,7 +82,7 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
 
   const setL = (i, k, v) => setT({ ...t, lineas: t.lineas.map((l, j) => (j === i ? { ...l, [k]: v } : l)) });
   const addL = (concepto = '') => { setT({ ...t, lineas: [...t.lineas, { ...nueva(), concepto }] }); setCostos([...costos, '']); setMargenes([...margenes, '']); };
-  const delL = (i) => { setT({ ...t, lineas: t.lineas.filter((_, j) => j !== i) }); setCostos(costos.filter((_, j) => j !== i)); setMargenes(margenes.filter((_, j) => j !== i)); setCompCostos(compCostos.filter((_, j) => j !== i)); };
+  const delL = (i) => { setT({ ...t, lineas: t.lineas.filter((_, j) => j !== i) }); setCostos(costos.filter((_, j) => j !== i)); setMargenes(margenes.filter((_, j) => j !== i)); setCompCostos(compCostos.filter((_, j) => j !== i)); setCompMargenes(compMargenes.filter((_, j) => j !== i)); };
 
   // Composite product: its unit price is the sum of its parts; for the admin, its unit cost too.
   const recalcular = (i, comps, cc) => {
@@ -98,13 +100,30 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
   };
   const compDe = (i) => t.lineas[i].componentes || [];
   const ccDe = (i) => compCostos[i] || [];
-  const setComp = (i, k, campo, v) => recalcular(i, compDe(i).map((c, j) => (j === k ? { ...c, [campo]: v } : c)), ccDe(i));
-  const setCompCosto = (i, k, v) => { const cc = [...ccDe(i)]; cc[k] = v; recalcular(i, compDe(i), cc); };
-  const addComp = (i) => { recalcular(i, [...compDe(i), nuevoComp()], [...ccDe(i), '']); setAbiertos({ ...abiertos, [i]: true }); };
-  const delComp = (i, k) => recalcular(i, compDe(i).filter((_, j) => j !== k), ccDe(i).filter((_, j) => j !== k));
+  // Each part works like a line: cost, then % margin, gives its price; typing the price recalculates the %.
+  const mDe = (i) => compMargenes[i] || [];
+  const setMs = (i, ms) => { const lista = [...compMargenes]; lista[i] = ms; setCompMargenes(lista); };
+  const setComp = (i, k, campo, v) => {
+    recalcular(i, compDe(i).map((c, j) => (j === k ? { ...c, [campo]: v } : c)), ccDe(i));
+    if (campo === 'pu') { const ms = [...mDe(i)]; ms[k] = margenDe(ccDe(i)[k], v); setMs(i, ms); }
+  };
+  const setCompCosto = (i, k, v) => {
+    const cc = [...ccDe(i)]; cc[k] = v;
+    const m = mDe(i)[k];
+    const comps = m !== '' && m != null ? compDe(i).map((c, j) => (j === k ? { ...c, pu: precioConMargen(v, m) } : c)) : compDe(i);
+    recalcular(i, comps, cc);
+  };
+  const setCompMargen = (i, k, v) => {
+    const ms = [...mDe(i)]; ms[k] = v; setMs(i, ms);
+    const pu = precioConMargen(ccDe(i)[k], v);
+    if (pu !== '') recalcular(i, compDe(i).map((c, j) => (j === k ? { ...c, pu } : c)), ccDe(i));
+  };
+  const addComp = (i) => { recalcular(i, [...compDe(i), nuevoComp()], [...ccDe(i), '']); setMs(i, [...mDe(i), '']); setAbiertos({ ...abiertos, [i]: true }); };
+  const delComp = (i, k) => { recalcular(i, compDe(i).filter((_, j) => j !== k), ccDe(i).filter((_, j) => j !== k)); setMs(i, mDe(i).filter((_, j) => j !== k)); };
   const elegirComp = (i, k, p) => {
     const c = toNum((pCostos.data || []).find((x) => x.producto_id === p.id)?.costo);
     const cc = [...ccDe(i)]; cc[k] = c || '';
+    const ms = [...mDe(i)]; ms[k] = c ? margenDe(c, p.precio) : ''; setMs(i, ms);
     recalcular(i, compDe(i).map((x, j) => (j === k ? { ...x, concepto: p.nombre, pu: p.precio ?? '', producto_id: p.id } : x)), cc);
   };
   // Cost first, then the margin: the sale price comes out of both. Typing a price recalculates the margin.
@@ -365,13 +384,14 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
                   {esCompuesto(l) && abiertos[i] && (
                     <Box mt="8px" ps={{ md: '18px' }} borderLeft={{ md: '3px solid' }} borderColor="brand.200">
                       {l.componentes.map((c, k) => (
-                        <SimpleGrid key={k} columns={{ base: 2, md: isAdmin ? 10 : 8 }} gap="8px" alignItems="end" mb="6px">
+                        <SimpleGrid key={k} columns={{ base: 2, md: isAdmin ? 11 : 8 }} gap="8px" alignItems="end" mb="6px">
                           <Field label="Componente" gridColumn={{ base: 'span 2', md: 'span 4' }}>
                             <BuscadorProducto productos={productos.data || []} value={c.producto_id} label={c.concepto} placeholder="Busca un insumo o escribe uno" extras={sugerencias}
                               onSelect={(p) => elegirComp(i, k, p)} onCrear={(v) => setComp(i, k, 'concepto', v)} isDisabled={!editable} bg="white" />
                           </Field>
                           <Field label="Cant. por unidad"><NumIn min={0} value={c.cant} onChange={(e) => setComp(i, k, 'cant', e.target.value)} isDisabled={!editable} bg="white" _dark={{ bg: 'navy.800' }} /></Field>
                           {isAdmin && <Field label="Costo unit." gridColumn={{ md: 'span 2' }}><NumIn min={0} value={ccDe(i)[k] ?? ''} onChange={(e) => setCompCosto(i, k, e.target.value)} isDisabled={!editable} bg="white" _dark={{ bg: 'navy.800' }} /></Field>}
+                          {isAdmin && <Field label="%"><NumIn min={0} value={mDe(i)[k] ?? ''} onChange={(e) => setCompMargen(i, k, e.target.value)} isDisabled={!editable} placeholder="%" bg="white" _dark={{ bg: 'navy.800' }} /></Field>}
                           <Field label="Precio unit." gridColumn={{ md: 'span 2' }}><NumIn min={0} value={c.pu} onChange={(e) => setComp(i, k, 'pu', e.target.value)} isDisabled={!editable} bg="white" _dark={{ bg: 'navy.800' }} /></Field>
                           <Flex align="center" justify="space-between" h="44px">
                             <Text fontSize="sm" fontWeight="600" whiteSpace="nowrap">{money(toNum(c.cant) * toNum(c.pu))}</Text>
