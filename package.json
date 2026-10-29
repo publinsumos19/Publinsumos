@@ -24,11 +24,14 @@
     "@supabase/supabase-js": "^2.118.0",
     "apexcharts": "^3.54.1",
     "framer-motion": "^11.18.2",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.2",
     "react": "^18.3.1",
     "react-apexcharts": "^1.4.1",
     "react-dom": "^18.3.1",
     "react-icons": "^5.7.0",
-    "react-router-dom": "^6.30.6"
+    "react-router-dom": "^6.30.6",
+    "xlsx": "^0.18.5"
   },
   "sideEffects": [
     "*.css"

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { setFormatoNumero } from '../lib/trabajo';
 
 const AuthContext = createContext(null);
 
@@ -34,6 +35,7 @@ export function AuthProvider({ children }) {
   const loadCfg = useCallback(async () => {
     if (!activo) return;
     const { data } = await supabase.from('config_publica').select('datos').eq('id', 1).maybeSingle();
+    setFormatoNumero(data?.datos?.cotizacion?.formatoNumero);
     setCfg(data?.datos || null);
     if (isAdmin) {
       const { data: c } = await supabase.from('config_costos').select('datos').eq('id', 1).maybeSingle();

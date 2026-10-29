@@ -31,6 +31,34 @@ const clone = (o) => JSON.parse(JSON.stringify(o ?? {}));
 const gid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 const Cell = (props) => <Input size="sm" borderRadius="10px" {...props} />;
 
+// Where the quote and delivery-note numbers continue from (for example after the shop's last paper quote).
+function Consecutivos() {
+  const toast = useToast();
+  const [v, setV] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (!isDemo) supabase.rpc('consecutivos').then(({ data }) => setV(data ? { cotizacion: String(data.cotizacion), remision: String(data.remision), orig: data } : null)); }, []);
+  if (!v) return null;
+  const guardar = async () => {
+    setBusy(true);
+    const c = toNum(v.cotizacion) !== v.orig.cotizacion ? toNum(v.cotizacion) : null;
+    const r = toNum(v.remision) !== v.orig.remision ? toNum(v.remision) : null;
+    const { error } = await supabase.rpc('fijar_consecutivos', { p_cotizacion: c, p_remision: r });
+    setBusy(false);
+    if (error) return toast({ title: errorMessage(error), status: 'error' });
+    setV({ ...v, orig: { cotizacion: toNum(v.cotizacion), remision: toNum(v.remision) } });
+    toast({ title: 'Numeración actualizada', status: 'success' });
+  };
+  return (
+    <Box>
+      <SimpleGrid columns={2} gap="12px">
+        <Field label="Siguiente número de cotización"><NumIn min={1} value={v.cotizacion} onChange={(e) => setV({ ...v, cotizacion: e.target.value })} /></Field>
+        <Field label="Siguiente número de remisión"><NumIn min={1} value={v.remision} onChange={(e) => setV({ ...v, remision: e.target.value })} /></Field>
+      </SimpleGrid>
+      <Button mt="8px" size="sm" variant="light" onClick={guardar} isLoading={busy}>Cambiar numeración</Button>
+    </Box>
+  );
+}
+
 export default function Ajustes() {
   const { cfg, costos, reloadCfg } = useAuth();
   const toast = useToast();
@@ -89,6 +117,9 @@ export default function Ajustes() {
           <Field label="Teléfono del negocio"><TextIn value={a.negocio?.telefono || ''} onChange={(e) => upd((y) => { y.negocio.telefono = e.target.value; })} /></Field>
           <Field label="Mensaje al final del recibo"><TextIn value={a.negocio?.pie || ''} onChange={(e) => upd((y) => { y.negocio.pie = e.target.value; })} /></Field>
           <Field label="Indicativo de país para WhatsApp"><TextIn value={a.negocio?.indicativo || ''} onChange={(e) => upd((y) => { y.negocio.indicativo = e.target.value; })} /></Field>
+          <Field label="Dirección (sale en cotizaciones y remisiones)"><TextIn value={a.negocio?.direccion || ''} onChange={(e) => upd((y) => { y.negocio.direccion = e.target.value; })} placeholder="Calle 26 # 19 - 52" /></Field>
+          <Field label="Ciudad"><TextIn value={a.negocio?.ciudad || ''} onChange={(e) => upd((y) => { y.negocio.ciudad = e.target.value; })} placeholder="Manizales" /></Field>
+          <Field label="Correo"><TextIn value={a.negocio?.correo || ''} onChange={(e) => upd((y) => { y.negocio.correo = e.target.value; })} type="email" /></Field>
           <Field label="Logo (dirección de la imagen, opcional)"><TextIn value={a.negocio?.logo || ''} onChange={(e) => upd((y) => { y.negocio.logo = e.target.value; })} placeholder="https://…/logo.png" /></Field>
         </SimpleGrid>
       </Card>
@@ -211,6 +242,11 @@ export default function Ajustes() {
               <Field label="Nombre de quien firma"><TextIn value={cotizacionCfg(a).firmaNombre} onChange={(e) => upd((y) => { y.cotizacion = { ...cotizacionCfg(y), firmaNombre: e.target.value }; })} /></Field>
               <Field label="Cargo"><TextIn value={cotizacionCfg(a).firmaCargo} onChange={(e) => upd((y) => { y.cotizacion = { ...cotizacionCfg(y), firmaCargo: e.target.value }; })} placeholder="Ej. Gerente" /></Field>
             </SimpleGrid>
+            <Field label="Número de las cotizaciones">
+              <Sel value={cotizacionCfg(a).formatoNumero || 'cot'} onChange={(e) => upd((y) => { y.cotizacion = { ...cotizacionCfg(y), formatoNumero: e.target.value }; })}
+                options={[['cot', 'COT-0012'], ['anio', 'Año + consecutivo (ej. 2026012)']]} />
+            </Field>
+            <Consecutivos />
             <Checkbox colorScheme="green" isChecked={cotizacionCfg(a).mostrarFirma !== false} onChange={(e) => upd((y) => { y.cotizacion = { ...cotizacionCfg(y), mostrarFirma: e.target.checked }; })}>Poner la firma en las cotizaciones impresas</Checkbox>
           </Flex>
         </SimpleGrid>

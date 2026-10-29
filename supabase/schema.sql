@@ -725,6 +725,7 @@ begin
   delete from contador where true;
   perform setval(pg_get_serial_sequence('public.ventas', 'numero'), 1, false);
   perform setval(pg_get_serial_sequence('public.trabajos', 'numero'), 1, false);
+  if to_regclass('public.remision_seq') is not null then perform setval('public.remision_seq', 1, false); end if;
   update config_publica set datos = datos || '{"ultimoContador": 0}'::jsonb where id = 1;
 end $$;
 
@@ -806,5 +807,72 @@ begin
               and pg_get_serial_sequence(format('public.%I', c.table_name), c.column_name) is not null loop
     execute format('select setval(%L, coalesce((select max(%I) from public.%I), 0) + 1, false)', s.seq, s.column_name, s.table_name);
   end loop;
+  if to_regclass('public.remision_seq') is not null then
+    perform setval('public.remision_seq', coalesce((select max(remision) from trabajos), 0) + 1, false);
+  end if;
   insert into cambios (tabla, n) select x, 1 from unnest(orden) x on conflict (tabla) do update set n = cambios.n + 1;
 end $$;
+
+-- ============================================================
+-- Versión 6: productos compuestos, datos de la carta de cotización,
+-- orden de compra, remisión y entrada de almacén del cliente.
+-- ============================================================
+alter table public.trabajos add column if not exists contacto text not null default '';
+alter table public.trabajos add column if not exists cargo text not null default '';
+alter table public.trabajos add column if not exists ciudad text not null default '';
+alter table public.trabajos add column if not exists descripcion text not null default '';
+alter table public.trabajos add column if not exists orden_compra text not null default '';
+alter table public.trabajos add column if not exists aprobado_fecha date;
+alter table public.trabajos add column if not exists remision integer unique;
+alter table public.trabajos add column if not exists remision_fecha date;
+alter table public.trabajos add column if not exists entrada_almacen text not null default '';
+alter table public.trabajos add column if not exists entrada_fecha date;
+-- Costo de cada componente (solo administrador): una lista por línea, en el orden de lineas[i].componentes.
+alter table public.trabajo_costos add column if not exists componentes jsonb not null default '[]';
+
+create sequence if not exists public.remision_seq;
+
+-- Le da su número de remisión al trabajo (una sola vez) y lo devuelve.
+create or replace function public.asignar_remision(p_trabajo uuid) returns integer
+language plpgsql security definer set search_path = public as $$
+declare n integer;
+begin
+  if not public.es_activo() then raise exception 'sin acceso'; end if;
+  select remision into n from trabajos where id = p_trabajo and (not privado or public.es_admin());
+  if not found then raise exception 'Trabajo no encontrado'; end if;
+  if n is null then
+    n := nextval('remision_seq');
+    update trabajos set remision = n, remision_fecha = public.hoy() where id = p_trabajo;
+  end if;
+  return n;
+end $$;
+
+-- El administrador puede decir desde qué número siguen las cotizaciones y las remisiones.
+create or replace function public.consecutivos() returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'cotizacion', (select case when is_called then last_value + 1 else last_value end from public.trabajos_numero_seq),
+    'remision', (select case when is_called then last_value + 1 else last_value end from public.remision_seq));
+$$;
+create or replace function public.fijar_consecutivos(p_cotizacion bigint, p_remision bigint) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.es_admin() then raise exception 'Solo el administrador puede cambiar la numeración'; end if;
+  if p_cotizacion is not null then
+    if p_cotizacion <= (select coalesce(max(numero), 0) from trabajos) then raise exception 'El número de cotización debe ser mayor que el último usado'; end if;
+    perform setval(pg_get_serial_sequence('public.trabajos', 'numero'), p_cotizacion, false);
+  end if;
+  if p_remision is not null then
+    if p_remision <= (select coalesce(max(remision), 0) from trabajos) then raise exception 'El número de remisión debe ser mayor que el último usado'; end if;
+    perform setval('public.remision_seq', p_remision, false);
+  end if;
+end $$;
+
+-- Datos de contacto del negocio para el pie de las cotizaciones (si todavía no los tiene).
+update public.config_publica
+   set datos = jsonb_set(datos, '{negocio}', coalesce(datos->'negocio', '{}') || jsonb_strip_nulls(jsonb_build_object(
+     'direccion', case when coalesce(datos->'negocio'->>'direccion', '') = '' then 'Calle 26 # 19 - 52' end,
+     'ciudad', case when coalesce(datos->'negocio'->>'ciudad', '') = '' then 'Manizales' end,
+     'correo', case when coalesce(datos->'negocio'->>'correo', '') = '' then 'publinsumos19@gmail.com' end,
+     'telefono', case when coalesce(datos->'negocio'->>'telefono', '') = '' then '3108654481' end)))
+ where id = 1;

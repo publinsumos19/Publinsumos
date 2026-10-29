@@ -4,6 +4,8 @@ import { MdAdd } from 'react-icons/md';
 import Card from '../components/card/Card';
 import DataTable from '../components/DataTable';
 import ClienteModal from '../components/ClienteModal';
+import ImportarClientes from '../components/ImportarClientes';
+import { useAuth } from '../context/AuthContext';
 import { TextIn } from '../components/Field';
 import { useLive } from '../hooks/useLive';
 import { supabase } from '../lib/supabase';
@@ -13,6 +15,7 @@ import { formaPagoTxt } from '../lib/trabajo';
 
 export default function Clientes() {
   const textColor = useColorModeValue('secondaryGray.900', 'white');
+  const { isAdmin } = useAuth();
   const [edit, setEdit] = useState(null);
   const [q, setQ] = useState('');
   const clientes = useLive(() => supabase.from('clientes').select('*').order('nombre'), ['clientes']);
@@ -31,6 +34,7 @@ export default function Clientes() {
           <Text fontSize="sm" color="secondaryGray.600">Datos y forma de pago de cada cliente. La forma de pago sale en sus cotizaciones.</Text>
         </Box>
         <Box w={{ base: '100%', md: '240px' }}><TextIn value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente, NIT o teléfono" /></Box>
+        {isAdmin && <ImportarClientes existentes={clientes.data || []} />}
         <Button variant="brand" leftIcon={<MdAdd />} onClick={() => setEdit({})}>Nuevo cliente</Button>
       </Flex>
       <DataTable rows={rows} onRowClick={(c) => setEdit(c)} empty="Aún no hay clientes."
