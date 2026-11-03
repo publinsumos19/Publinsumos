@@ -16,6 +16,7 @@ import { receiptText } from '../lib/receipt';
 import { margenDe, precioConMargen } from '../lib/margen';
 import { abrirRecordatorios } from '../components/Recordatorios';
 import BuscadorProducto from '../components/BuscadorProducto';
+import DanoModal from '../components/DanoModal';
 
 const emptyServ = { id: '', desc: '', cant: 1, pu: '', costo: '' };
 
@@ -49,11 +50,16 @@ export default function Vender() {
   const [fe, setFe] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Papers are split in two groups: the shop's own paper, and the printing service when the customer brings the paper.
+  const [papelCli, setPapelCli] = useState(false);
+  const [dano, setDano] = useState(false);
+  const delGrupo = (cli) => (cfg?.sustratos || []).filter((x) => !!x.servicio === cli);
   useEffect(() => {
-    if (cfg && !cfg.sustratos.some((x) => x.id === imp.sus)) {
-      setImp((f) => ({ ...f, sus: cfg.sustratos[0]?.id || '', gram: f.gram || cfg.gramajes?.[0]?.id || '' }));
+    if (cfg && !delGrupo(papelCli).some((x) => x.id === imp.sus)) {
+      const g = delGrupo(papelCli);
+      setImp((f) => ({ ...f, sus: (g[0] || cfg.sustratos[0])?.id || '', gram: f.gram || cfg.gramajes?.[0]?.id || '' }));
     }
-  }, [cfg, imp.sus]);
+  }, [cfg, imp.sus, papelCli]);
 
   const panel = useColorModeValue('secondaryGray.300', 'whiteAlpha.100');
   const textColor = useColorModeValue('secondaryGray.900', 'white');
@@ -168,8 +174,14 @@ export default function Vender() {
 
           {tipo === 'imp' && (
             <Flex direction="column" gap="14px">
+              {delGrupo(true).length > 0 && (
+                <Flex align="center" gap="10px" wrap="wrap">
+                  <Text fontSize="sm" color="secondaryGray.600">¿Quién pone el papel?</Text>
+                  <Segmented value={papelCli ? 'cli' : 'neg'} onChange={(v) => setPapelCli(v === 'cli')} options={[['neg', 'El negocio'], ['cli', 'El cliente (solo impresión)']]} />
+                </Flex>
+              )}
               <SimpleGrid columns={{ base: 1, md: 2 }} gap="14px">
-                <Field label="Papel y tamaño"><Sel value={imp.sus} onChange={(e) => setImp({ ...imp, sus: e.target.value })} options={cfg.sustratos.map((s) => [s.id, s.nombre])} /></Field>
+                <Field label={papelCli ? 'Papel que trae el cliente' : 'Papel y tamaño'}><Sel value={imp.sus} onChange={(e) => setImp({ ...imp, sus: e.target.value })} options={delGrupo(papelCli).map((s) => [s.id, s.nombre])} /></Field>
                 {sus?.corriente ? (
                   <Field label="Gramaje"><Sel value={imp.gram} onChange={(e) => setImp({ ...imp, gram: e.target.value })} options={cfg.gramajes.map((g) => [g.id, g.nombre])} /></Field>
                 ) : <Box />}
@@ -196,6 +208,9 @@ export default function Vender() {
                   </Flex>
                 ) : <Text fontSize="sm" color="secondaryGray.600">Escribe la cantidad para ver el precio.</Text>}
               </Box>
+              <Flex justify="flex-end">
+                <Button size="sm" variant="ghost" colorScheme="red" onClick={() => setDano(true)}>Registrar impresión dañada</Button>
+              </Flex>
             </Flex>
           )}
 
@@ -285,6 +300,7 @@ export default function Vender() {
         {cart.length > 0 && <Button mt="8px" variant="ghost" size="sm" onClick={() => setCart([])}>Vaciar ticket</Button>}
       </Card>
       {shareData && <ShareModal isOpen={share.isOpen} onClose={share.onClose} {...shareData} />}
+      {dano && <DanoModal onClose={() => setDano(false)} />}
     </Grid>
   );
 }

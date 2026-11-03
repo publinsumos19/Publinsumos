@@ -21,6 +21,9 @@ const delTipo = (tipo) => (i) => i.tipo === 'imp' && (tipo === 'general' || (tip
 const clicsEn = (ventas, a, b, tipo = 'general') =>
   (ventas || []).filter((v) => v.fecha >= a && v.fecha <= b).flatMap((v) => v.items).filter(delTipo(tipo)).reduce((s, i) => s + toNum(i.clics), 0);
 const tipoDe = (r) => r.tipo || 'general';
+// Damaged prints (not charged) also used clics on the machine.
+const danosEn = (danos, a, b, tipo = 'general') =>
+  (danos || []).filter((x) => x.fecha >= a && x.fecha <= b && (tipo === 'general' || (tipo === 'color') === !!x.color)).reduce((s, x) => s + toNum(x.clics), 0);
 
 export default function Cuadre() {
   const [tipo, setTipo] = useState('general');
@@ -55,6 +58,7 @@ function CuadreTipo({ tipo }) {
 
   const desde = useMemo(() => [f?.inicio, ...(todos.data || []).map((r) => r.inicio)].filter(Boolean).sort()[0] || today(), [f, todos.data]);
   const ventas = useLive(() => supabase.from('ventas').select('fecha, items').gte('fecha', desde), ['ventas'], [desde]);
+  const danos = useLive(() => supabase.from('impresiones_danadas').select('fecha, color, clics').gte('fecha', desde), ['impresiones_danadas'], [desde]);
 
   const tol = toNum(cfg?.tolerancia ?? 5) / 100;
   const costoClic = tipo === 'general' ? toNum(costos?.costoClic) : costoClicDe(costos, tipo === 'color');
@@ -66,7 +70,8 @@ function CuadreTipo({ tipo }) {
   const maq = toNum(f.cFin) - toNum(f.cIni);
   const ok = f.inicio && f.fin && f.cFin !== '' && maq >= 0 && f.fin >= f.inicio;
   const ven = clicsEn(ventas.data, f.inicio, f.fin, tipo);
-  const d = maq - ven;
+  const dan = danosEn(danos.data, f.inicio, f.fin, tipo);
+  const d = maq - ven - dan;
 
   const guardar = async () => {
     const { error } = await supabase.from('contador').insert({ tipo, inicio: f.inicio, contador_inicial: toNum(f.cIni), fin: f.fin, contador_final: toNum(f.cFin) });
@@ -102,8 +107,9 @@ function CuadreTipo({ tipo }) {
             <Flex direction="column" gap="6px" fontSize="sm">
               <Flex justify="space-between"><Text>Clics de la máquina</Text><Text fontWeight="700">{intf(maq)}</Text></Flex>
               <Flex justify="space-between"><Text>Clics vendidos en la app</Text><Text fontWeight="700">{intf(ven)}</Text></Flex>
+              {dan > 0 && <Flex justify="space-between"><Text>Clics de impresiones dañadas</Text><Text fontWeight="700">{intf(dan)}</Text></Flex>}
               <Flex justify="space-between"><Text>Diferencia</Text><Dif d={d} maq={maq} /></Flex>
-              {d > 0 && <Text color="secondaryGray.600">Hay {intf(d)} clics usados que no aparecen en ventas (pruebas, daños o ventas sin registrar). Cuestan unos {money(d * costoClic)}.</Text>}
+              {d > 0 && <Text color="secondaryGray.600">Hay {intf(d)} clics usados que no aparecen en ventas (pruebas, daños sin registrar o ventas sin registrar). Cuestan unos {money(d * costoClic)}.</Text>}
             </Flex>
           ) : <Text fontSize="sm" color="secondaryGray.600">{f.cFin !== '' && maq < 0 ? 'El contador de cierre no puede ser menor que el inicial.' : 'Escribe el contador de cierre para ver el cuadre.'}</Text>}
         </Box>
@@ -122,7 +128,8 @@ function CuadreTipo({ tipo }) {
             { key: 'c', label: 'Contador', num: true, render: (r) => `${intf(r.contador_inicial)} → ${intf(r.contador_final)}` },
             { key: 'm', label: 'Clics máquina', num: true, render: (r) => intf(r.contador_final - r.contador_inicial) },
             { key: 'v', label: 'Clics vendidos', num: true, render: (r) => intf(clicsEn(ventas.data, r.inicio, r.fin, tipo)) },
-            { key: 'd', label: 'Sin cobrar', num: true, render: (r) => { const m = r.contador_final - r.contador_inicial; const dd = m - clicsEn(ventas.data, r.inicio, r.fin, tipo); return <Dif d={dd} maq={m} />; } },
+            { key: 'k', label: 'Dañadas', num: true, render: (r) => intf(danosEn(danos.data, r.inicio, r.fin, tipo)) },
+            { key: 'd', label: 'Sin cobrar', num: true, render: (r) => { const m = r.contador_final - r.contador_inicial; const dd = m - clicsEn(ventas.data, r.inicio, r.fin, tipo) - danosEn(danos.data, r.inicio, r.fin, tipo); return <Dif d={dd} maq={m} />; } },
             { key: 'x', label: '', num: true, render: (r) => (
               <Flex gap="6px" justify="flex-end">
                 <Button size="xs" variant="lightBrand" onClick={() => navigate(`/cierre?tipo=semanal&desde=${r.inicio}&hasta=${r.fin}`)}>Cierre</Button>

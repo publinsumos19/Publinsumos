@@ -32,3 +32,18 @@ describe('resumenCierre', () => {
     expect(R.vendedores[0]).toMatchObject({ k: 'Laura', n: 2, total: 80000 });
   });
 });
+
+describe('impresiones dañadas', () => {
+  const cfg = { tamanos: [{ id: 'carta', clics: 1, piezas: 9 }], sustratos: [{ id: 'cc', nombre: 'Corriente', tamano: 'carta', corriente: true, precios: [2100, 1900, 1700, 1600] }], gramajes: [{ id: 'g75' }] };
+  const costos = { costoClic: 655, gramajes: { g75: 369 } };
+  const danos = [{ fecha: '2026-10-20', sus: 'cc', gram: 'g75', color: true, cant: 3, clics: 3 }];
+  const contador = [{ tipo: 'general', inicio: '2026-10-20', fin: '2026-10-20', contador_inicial: 100, contador_final: 113 }];
+  it('subtracts damaged clics from the counter difference and reports the loss to the admin', () => {
+    const R = resumenCierre({ desde: '2026-10-20', hasta: '2026-10-20', ventas, abonos, contador, danos, costos, cfg, admin: true });
+    expect(R.contador[0]).toMatchObject({ maquina: 13, vendidos: 10, danadas: 3, dif: 0 });
+    expect(R.danadas).toMatchObject({ n: 1, cant: 3, clics: 3, costo: Math.round(3 * (655 + 369 / 9)) });
+  });
+  it('hides the loss from the seller', () => {
+    expect(resumenCierre({ desde: '2026-10-20', hasta: '2026-10-20', ventas, abonos, contador, danos, costos, cfg, admin: false }).danadas.costo).toBe(0);
+  });
+});

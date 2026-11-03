@@ -1,7 +1,7 @@
 // Cash closing (cierre de caja): every total the owner checks at the end of the day or the week.
 // Pure functions so the screen, the saved history, the WhatsApp text and the printable page agree.
 import { fdate, intf, money, LINEAS, PAGOS } from './format';
-import { toNum } from './pricing';
+import { costoDano, toNum } from './pricing';
 
 const sum = (arr, f) => arr.reduce((a, x) => a + toNum(f(x)), 0);
 
@@ -32,7 +32,8 @@ function itemsConCosto(v, admin) {
  * trabajos / trabajoAbonos: custom jobs the user can see and their payments in the period.
  * contador: counter readings whose end date falls in the period.
  */
-export function resumenCierre({ desde, hasta, ventas = [], abonos = [], trabajos = [], trabajoAbonos = [], contador = [], cfg, admin, perfiles = [], cartera = 0, incluirPrivado = true }) {
+// danos: damaged prints (impresiones_danadas) since the earliest counter reading; costos: admin costs for their loss.
+export function resumenCierre({ desde, hasta, ventas = [], abonos = [], trabajos = [], trabajoAbonos = [], contador = [], danos = [], costos = null, cfg, admin, perfiles = [], cartera = 0, incluirPrivado = true }) {
   const items = ventas.flatMap((v) => itemsConCosto(v, admin));
   const total = sum(ventas, (v) => v.total);
   const costo = sum(items, (i) => i.costo);
@@ -74,8 +75,15 @@ export function resumenCierre({ desde, hasta, ventas = [], abonos = [], trabajos
     const b = rows.map((r) => r.fin).sort().slice(-1)[0];
     const vend = sum(ventas.filter((v) => v.fecha >= a && v.fecha <= b).flatMap((v) => v.items)
       .filter((i) => i.tipo === 'imp' && (tipo === 'general' || (tipo === 'color') === !!i.det?.color)), (i) => i.clics);
-    return { tipo, label: { general: 'Contador general', color: 'Contador color', bn: 'Contador blanco y negro' }[tipo], inicio: a, fin: b, ini, finC: fin, maquina: fin - ini, vendidos: vend, dif: fin - ini - vend };
+    const dan = sum(danos.filter((d) => d.fecha >= a && d.fecha <= b && (tipo === 'general' || (tipo === 'color') === !!d.color)), (d) => d.clics);
+    return { tipo, label: { general: 'Contador general', color: 'Contador color', bn: 'Contador blanco y negro' }[tipo], inicio: a, fin: b, ini, finC: fin, maquina: fin - ini, vendidos: vend, danadas: dan, dif: fin - ini - vend - dan };
   }).filter(Boolean);
+
+  const danP = danos.filter((d) => d.fecha >= desde && d.fecha <= hasta);
+  const danadas = {
+    n: danP.length, cant: sum(danP, (d) => d.cant), clics: sum(danP, (d) => d.clics),
+    costo: admin && costos ? sum(danP, (d) => costoDano(cfg, costos, d)) : 0,
+  };
 
   let privado = null;
   if (admin && incluirPrivado) {
@@ -108,7 +116,7 @@ export function resumenCierre({ desde, hasta, ventas = [], abonos = [], trabajos
     vendedores, porDia,
     fe: { n: conFe.length, total: sum(conFe, (v) => v.total) },
     sinFe: { n: ventas.length - conFe.length, total: total - sum(conFe, (v) => v.total) },
-    contador: lecturas, cartera, privado, admin,
+    contador: lecturas, danadas, cartera, privado, admin,
   };
 }
 
@@ -141,10 +149,11 @@ export function cierreText(negocio, R, tipo, extra = {}) {
     L.push(`Recibido menos gastos: ${money(R.recibido.total - extra.G.total)}`);
   }
   L.push('', `Impresiones color: ${intf(R.impresiones.color.cant)} (${intf(R.impresiones.color.clics)} clics)`, `Impresiones B/N: ${intf(R.impresiones.bn.cant)} (${intf(R.impresiones.bn.clics)} clics)`);
-  for (const c of R.contador) L.push(`${c.label}: ${intf(c.maquina)} clics máquina, ${intf(c.vendidos)} vendidos (${c.dif > 0 ? '+' : ''}${intf(c.dif)})`);
+  if (R.danadas?.n) L.push(`Impresiones dañadas: ${intf(R.danadas.cant)} hojas (${intf(R.danadas.clics)} clics)${R.admin ? ` · pérdida ${money(R.danadas.costo)}` : ''}`);
+  for (const c of R.contador) L.push(`${c.label}: ${intf(c.maquina)} clics máquina, ${intf(c.vendidos)} vendidos${c.danadas ? `, ${intf(c.danadas)} dañados` : ''} (${c.dif > 0 ? '+' : ''}${intf(c.dif)})`);
   L.push(`Con factura electrónica: ${R.fe.n} ventas · ${money(R.fe.total)}`);
   if (R.admin) L.push('', `Ganancia estimada: ${money(R.ventas.ganancia)}`);
-  if (R.admin && extra.G) L.push(`Ganancia después de gastos: ${money(R.ventas.ganancia - extra.G.total)}`);
+  if (R.admin && extra.G) L.push(`Ganancia después de gastos${R.danadas?.costo ? ' y daños' : ''}: ${money(R.ventas.ganancia - extra.G.total - (R.danadas?.costo || 0))}`);
   L.push(`Cartera por cobrar: ${money(R.cartera)}`);
   if (R.privado) L.push('', '*Trabajos personalizados (privado)*', `Recibido: ${money(R.privado.recibido)}`, `Saldo por cobrar: ${money(R.privado.saldo)}`);
   if (extra.nota) L.push('', `Nota: ${extra.nota}`);
@@ -182,16 +191,17 @@ export function cierreHtml(negocio, R, tipo, extra = {}) {
   }
   if (extra.gastos) {
     sec.push(`<h2>Gastos</h2>${tabla(['Fecha', 'Gasto', 'Categoría', 'Pago', 'Valor'], extra.gastos.map((g) => [fdate(g.fecha), g.concepto, g.categoria, PAGOS[g.pago] + (g.caja ? ' · caja ' + g.caja : ''), money(g.monto)]), ['Total', '', '', '', money(extra.G.total)])}
-      <p class="nota">Recibido menos gastos: <b>${money(R.recibido.total - extra.G.total)}</b>${A ? ` · Ganancia después de gastos: <b>${money(R.ventas.ganancia - extra.G.total)}</b>` : ''}</p>`);
+      <p class="nota">Recibido menos gastos: <b>${money(R.recibido.total - extra.G.total)}</b>${A ? ` · Ganancia después de gastos${R.danadas?.costo ? ' y daños' : ''}: <b>${money(R.ventas.ganancia - extra.G.total - (R.danadas?.costo || 0))}</b>` : ''}</p>`);
   }
   sec.push(`<h2>Ventas por forma de pago</h2>${tabla(['Forma de pago', 'Ventas', 'Total'], R.ventasPorPago.map((p) => [p.label, intf(p.n), money(p.total)]))}`);
   sec.push(`<h2>Fotocopiadora: color y blanco y negro</h2>${tabla(['Tipo', 'Impresiones', 'Clics', 'Ventas', ...(A ? ['Costo'] : [])],
     [['Color', intf(R.impresiones.color.cant), intf(R.impresiones.color.clics), money(R.impresiones.color.total), ...(A ? [money(R.impresiones.color.costo)] : [])],
       ['Blanco y negro', intf(R.impresiones.bn.cant), intf(R.impresiones.bn.clics), money(R.impresiones.bn.total), ...(A ? [money(R.impresiones.bn.costo)] : [])]])}
-    ${tabla(['Papel', 'Impresiones', 'Clics', 'Ventas'], R.impresiones.porPapel.map((g) => [g.k, intf(g.cant), intf(g.clics), money(g.total)]))}`);
+    ${tabla(['Papel', 'Impresiones', 'Clics', 'Ventas'], R.impresiones.porPapel.map((g) => [g.k, intf(g.cant), intf(g.clics), money(g.total)]))}
+    ${R.danadas?.n ? `<p class="nota">Impresiones dañadas (no cobradas): <b>${intf(R.danadas.cant)} hojas · ${intf(R.danadas.clics)} clics</b>${A ? ` · pérdida aprox. <b>${money(R.danadas.costo)}</b>` : ''}</p>` : ''}`);
   if (R.contador.length) {
-    sec.push(`<h2>Contador de la máquina</h2>${tabla(['Contador', 'Lecturas', 'Clics máquina', 'Clics vendidos', 'Diferencia'],
-      R.contador.map((c) => [c.label, `${intf(c.ini)} → ${intf(c.finC)}`, intf(c.maquina), intf(c.vendidos), intf(c.dif)]))}`);
+    sec.push(`<h2>Contador de la máquina</h2>${tabla(['Contador', 'Lecturas', 'Clics máquina', 'Clics vendidos', 'Clics dañados', 'Diferencia'],
+      R.contador.map((c) => [c.label, `${intf(c.ini)} → ${intf(c.finC)}`, intf(c.maquina), intf(c.vendidos), intf(c.danadas || 0), intf(c.dif)]))}`);
   }
   sec.push(`<h2>Insumos vendidos</h2>${tabla(['Producto', 'Cantidad', 'Total'], R.productos.map((g) => [g.k, intf(g.cant), money(g.total)]))}`);
   sec.push(`<h2>Productos y servicios de terceros</h2>${tabla(['Servicio', 'Proveedor', 'Cantidad', 'Total', ...(A ? ['Se le debe al proveedor'] : [])],

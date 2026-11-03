@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcImpresion, escalaIdx, itemImpresion, costoClicDe } from './pricing';
+import { calcImpresion, escalaIdx, itemImpresion, costoClicDe, costoDano } from './pricing';
 
 const cfg = {
   plastificado: { precio: 1000 },
@@ -59,5 +59,21 @@ describe('costoClicDe', () => {
     expect(costoClicDe({ costoClic: 655, costoClicColor: 700 }, true)).toBe(700);
     expect(costoClicDe({ costoClic: 655, costoClicColor: 700 }, false)).toBe(655);
     expect(costoClicDe({ costoClic: 655, costoClicBN: 0 }, false)).toBe(655);
+  });
+});
+
+describe('servicio de impresión (el cliente trae el papel)', () => {
+  const cfgS = { ...cfg, sustratos: [...cfg.sustratos, { id: 'sv_met48', nombre: 'Metalizado 33 x 48 cm', tamano: 't48', corriente: false, servicio: true, precios: [4000, 3600, 3300, 3000] }] };
+  const costosS = { ...costos, sustratos: { ...costos.sustratos, sv_met48: 9999 } };
+  it('uses the 33x48 scale and costs only the clics, never paper', () => {
+    const r = calcImpresion(cfgS, { sus: 'sv_met48', color: true, cant: 25 }, costosS);
+    expect(r.pu).toBe(3600);
+    expect(r.clics).toBe(50);
+    expect(r.costo).toBe(25 * 2 * 655);
+    expect(r.desc).toMatch(/cliente trae el papel/);
+  });
+  it('damaged prints cost clic + paper of the shop', () => {
+    expect(costoDano(cfgS, costosS, { sus: 'ad48', color: true, cant: 4 })).toBe(Math.round(4 * (655 * 2 + 2300 / 4)));
+    expect(costoDano(cfgS, costosS, { sus: 'sv_met48', color: true, cant: 4 })).toBe(4 * 2 * 655);
   });
 });

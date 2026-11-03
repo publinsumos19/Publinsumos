@@ -184,7 +184,13 @@ export const CONFIG_PUBLICA = {
         5600,
         5400
       ]
-    }
+    },
+    {"id": "sv_teslin", "nombre": "Teslin carta", "tamano": "carta", "corriente": false, "servicio": true, "precios": [3000, 3000, 3000, 3000]},
+    {"id": "sv_finos", "nombre": "Papeles finos carta u oficio", "tamano": "carta", "corriente": false, "servicio": true, "precios": [3000, 3000, 3000, 3000]},
+    {"id": "sv_foto", "nombre": "Papel fotográfico carta", "tamano": "carta", "corriente": false, "servicio": true, "precios": [3000, 3000, 3000, 3000]},
+    {"id": "sv_pergamino", "nombre": "Papel pergamino carta", "tamano": "carta", "corriente": false, "servicio": true, "precios": [3000, 3000, 3000, 3000]},
+    {"id": "sv_acetato", "nombre": "Acetato carta", "tamano": "carta", "corriente": false, "servicio": true, "precios": [3000, 3000, 3000, 3000]},
+    {"id": "sv_met48", "nombre": "Metalizado 33 x 48 cm", "tamano": "t48", "corriente": false, "servicio": true, "precios": [4000, 3600, 3300, 3000]}
   ]
 };
 

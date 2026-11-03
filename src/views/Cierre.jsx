@@ -53,7 +53,7 @@ const Pie = ({ cells }) => (
 );
 
 export default function Cierre() {
-  const { cfg, isAdmin, perfil } = useAuth();
+  const { cfg, costos, isAdmin, perfil } = useAuth();
   const toast = useToast();
   const share = useDisclosure();
   const nuevoGasto = useDisclosure();
@@ -84,6 +84,7 @@ export default function Cierre() {
   const trabajos = useLive(() => supabase.from('trabajos').select('*'), ['trabajos'], deps);
   const tAbonos = useLive(() => supabase.from('trabajo_abonos').select('*, trabajos(privado, cliente, titulo, numero)').gte('fecha', desde).lte('fecha', hasta), ['trabajo_abonos', 'trabajos'], deps);
   const contador = useLive(() => supabase.from('contador').select('*').gte('fin', desde).lte('fin', hasta), ['contador'], deps);
+  const danos = useLive(() => supabase.from('impresiones_danadas').select('fecha, sus, gram, color, cant, clics').gte('fecha', desde).lte('fecha', hasta), ['impresiones_danadas'], deps);
   const perfiles = useLive(() => supabase.from('perfiles').select('id, nombre'), ['perfiles']);
   const cartera = useLive(() => supabase.from('ventas').select('saldo').gt('saldo', 0), ['ventas', 'abonos']);
   const aperturas = useLive(() => supabase.from('aperturas').select('*').gte('fecha', desde).lte('fecha', hasta).order('fecha'), ['aperturas'], deps);
@@ -95,8 +96,9 @@ export default function Cierre() {
   const R = useMemo(() => (listo ? resumenCierre({
     desde, hasta, cfg, admin: isAdmin, incluirPrivado: privado,
     ventas: ventas.data, abonos: abonos.data, trabajos: trabajos.data, trabajoAbonos: tAbonos.data, contador: contador.data,
+    danos: danos.data || [], costos,
     perfiles: perfiles.data || [], cartera: (cartera.data || []).reduce((a, v) => a + toNum(v.saldo), 0),
-  }) : null), [listo, desde, hasta, cfg, isAdmin, privado, ventas.data, abonos.data, trabajos.data, tAbonos.data, contador.data, perfiles.data, cartera.data]);
+  }) : null), [listo, desde, hasta, cfg, isAdmin, privado, ventas.data, abonos.data, trabajos.data, tAbonos.data, contador.data, danos.data, costos, perfiles.data, cartera.data]);
 
   if (!R) return <Text color="secondaryGray.600">Cargando…</Text>;
 
@@ -252,7 +254,7 @@ export default function Cierre() {
         <MiniStatistics icon={MdAccountBalanceWallet} name="Dinero recibido" value={money(R.recibido.total)} help={`Abonos a cartera: ${money(R.recibido.deCartera)}`} />
         <MiniStatistics icon={MdCreditCard} name="Fiado en el periodo" value={money(R.credito.saldo)} help={`${R.credito.n} ventas a crédito`} tone="orange" />
         {isAdmin
-          ? <MiniStatistics icon={MdTrendingUp} name="Ganancia estimada" value={money(R.ventas.ganancia)} help={`${R.ventas.total ? Math.round((R.ventas.ganancia / R.ventas.total) * 100) : 0}% sobre ventas · después de gastos ${money(R.ventas.ganancia - G.total)}`} tone="green" />
+          ? <MiniStatistics icon={MdTrendingUp} name="Ganancia estimada" value={money(R.ventas.ganancia)} help={`${R.ventas.total ? Math.round((R.ventas.ganancia / R.ventas.total) * 100) : 0}% sobre ventas · después de gastos${R.danadas.costo ? ' y daños' : ''} ${money(R.ventas.ganancia - G.total - R.danadas.costo)}`} tone="green" />
           : <MiniStatistics icon={MdAccountBalanceWallet} name="Cartera por cobrar" value={money(R.cartera)} tone="orange" />}
         <MiniStatistics icon={MdMoneyOff} name="Gastos" value={money(G.total)} help={`${G.n} gastos · en efectivo ${money(G.por.efectivo)}`} tone="red" />
       </SimpleGrid>
@@ -360,11 +362,17 @@ export default function Cierre() {
           <Text fontSize="md" fontWeight="700" color={textColor} mt="14px">Por papel</Text>
           <DataTable rows={R.impresiones.porPapel.map((g) => ({ ...g, id: g.k }))} empty="Sin impresiones."
             columns={[{ key: 'k', label: 'Papel' }, { key: 'cant', label: 'Impresiones', num: true, render: (g) => intf(g.cant) }, { key: 'clics', label: 'Clics', num: true, render: (g) => intf(g.clics) }, { key: 'total', label: 'Ventas', num: true, render: (g) => money(g.total) }]} />
+          {R.danadas.n > 0 && (
+            <Flex justify="space-between" fontSize="sm" mt="10px" px="4px" gap="10px">
+              <Text>Impresiones dañadas (no cobradas): {intf(R.danadas.cant)} hojas · {intf(R.danadas.clics)} clics</Text>
+              {isAdmin && <Text fontWeight="700" color="red.500" whiteSpace="nowrap">-{money(R.danadas.costo)}</Text>}
+            </Flex>
+          )}
         </Seccion>
         <Seccion title="Contador de la máquina" help={R.contador.length ? 'Lecturas guardadas en Cuadre que cierran dentro de este periodo.' : 'No hay lecturas del contador que cierren en este periodo. Regístralas en Cuadre.'}>
           {R.contador.length > 0 && (
             <DataTable rows={R.contador.map((c) => ({ ...c, id: c.tipo }))}
-              columns={[{ key: 'label', label: 'Contador', render: (c) => ({ general: 'General', color: 'Color', bn: 'B/N' }[c.tipo]) }, { key: 'l', label: 'Lecturas', num: true, render: (c) => `${intf(c.ini)} → ${intf(c.finC)}` }, { key: 'maquina', label: 'Máquina', num: true, render: (c) => intf(c.maquina) }, { key: 'vendidos', label: 'Vendidos', num: true, render: (c) => intf(c.vendidos) },
+              columns={[{ key: 'label', label: 'Contador', render: (c) => ({ general: 'General', color: 'Color', bn: 'B/N' }[c.tipo]) }, { key: 'l', label: 'Lecturas', num: true, render: (c) => `${intf(c.ini)} → ${intf(c.finC)}` }, { key: 'maquina', label: 'Máquina', num: true, render: (c) => intf(c.maquina) }, { key: 'vendidos', label: 'Vendidos', num: true, render: (c) => intf(c.vendidos) }, { key: 'danadas', label: 'Dañados', num: true, render: (c) => intf(c.danadas) },
                 { key: 'dif', label: 'Diferencia', num: true, render: (c) => <Badge colorScheme={Math.abs(c.dif) <= (toNum(cfg?.tolerancia ?? 5) / 100) * Math.max(c.maquina, 1) ? 'green' : 'red'}>{intf(c.dif)}</Badge> }]} />
           )}
           <Text fontSize="md" fontWeight="700" color={textColor} mt="14px">Factura electrónica</Text>

@@ -10,7 +10,7 @@ import { Field, NumIn, TextIn } from '../components/Field';
 import { useAuth } from '../context/AuthContext';
 import { useLive, notifyChange } from '../hooks/useLive';
 import { supabase, errorMessage } from '../lib/supabase';
-import { cantf, intf, money, normalize } from '../lib/format';
+import { cantf, fdate, intf, money, normalize } from '../lib/format';
 import ConteoInicial from '../components/ConteoInicial';
 import { Sel } from '../components/Field';
 import { toNum } from '../lib/pricing';
@@ -123,12 +123,80 @@ function EntradaModal({ producto, onClose }) {
   );
 }
 
+export const MOTIVOS_SALIDA = ['Dañado', 'Uso interno', 'Devolución al proveedor', 'Vencido', 'Otro'];
+
+function SalidaModal({ producto, onClose }) {
+  const toast = useToast();
+  const [cant, setCant] = useState('');
+  const [motivo, setMotivo] = useState(MOTIVOS_SALIDA[0]);
+  const [nota, setNota] = useState('');
+  const [busy, setBusy] = useState(false);
+  const guardar = async () => {
+    if (toNum(cant) <= 0) return toast({ title: 'Escribe la cantidad', status: 'warning' });
+    setBusy(true);
+    const { error } = await supabase.rpc('salida_stock', { p_producto: producto.id, p_cant: toNum(cant), p_motivo: motivo, p_nota: nota.trim() });
+    setBusy(false);
+    if (error) return toast({ title: errorMessage(error), status: 'error' });
+    notifyChange('productos', 'salidas_stock');
+    toast({ title: `Stock actualizado: ${cantf(toNum(producto.stock) - toNum(cant))}`, status: 'success' });
+    onClose();
+  };
+  return (
+    <Modal isOpen onClose={onClose}>
+      <ModalOverlay />
+      <ModalContent borderRadius="20px" mx="12px">
+        <ModalHeader>Salida de stock</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          <Text mb="12px">{producto.nombre} · hay {intf(producto.stock)} {producto.unidad}</Text>
+          <Flex direction="column" gap="12px">
+            <Field label="Cantidad que sale"><NumIn min={0} value={cant} onChange={(e) => setCant(e.target.value)} /></Field>
+            <Field label="Motivo"><Sel value={motivo} onChange={(e) => setMotivo(e.target.value)} options={MOTIVOS_SALIDA.map((m) => [m, m])} /></Field>
+            <Field label="Nota (opcional)"><TextIn value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Ej. se mojó en la bodega" /></Field>
+            {toNum(cant) > toNum(producto.stock) && <Text fontSize="sm" color="orange.500" fontWeight="600">Sale más de lo que hay; el stock quedará en negativo.</Text>}
+          </Flex>
+          <Text fontSize="xs" color="secondaryGray.600" mt="12px">Usa esto para lo que sale sin venderse. Las ventas descuentan el stock solas.</Text>
+        </ModalBody>
+        <ModalFooter><Button variant="brand" onClick={guardar} isLoading={busy}>Descontar del stock</Button></ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+}
+
+function SalidasModal({ onClose }) {
+  const salidas = useLive(() => supabase.from('salidas_stock').select('*').order('creado', { ascending: false }).limit(200), ['salidas_stock']);
+  const rows = salidas.data || [];
+  const total = rows.reduce((a, r) => a + toNum(r.cant) * toNum(r.costo_unit), 0);
+  return (
+    <Modal isOpen onClose={onClose} size="3xl">
+      <ModalOverlay />
+      <ModalContent borderRadius="20px" mx="12px">
+        <ModalHeader>Salidas de stock</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          {rows.length > 0 && <Text fontSize="sm" color="secondaryGray.600" mb="10px">Últimas {rows.length} salidas · costo aprox. {money(total)}</Text>}
+          <DataTable rows={salidas.data} empty="Aún no hay salidas registradas." columns={[
+            { key: 'fecha', label: 'Fecha', render: (r) => fdate(r.fecha) },
+            { key: 'p', label: 'Producto', render: (r) => <><Text fontWeight="700">{r.producto_nombre}</Text>{r.nota && <Text fontSize="xs" color="secondaryGray.600">{r.nota}</Text>}</> },
+            { key: 'cant', label: 'Cantidad', num: true, render: (r) => cantf(r.cant) },
+            { key: 'motivo', label: 'Motivo', render: (r) => r.motivo },
+            { key: 'c', label: 'Costo', num: true, render: (r) => money(toNum(r.cant) * toNum(r.costo_unit)) },
+          ]} />
+        </ModalBody>
+        <ModalFooter />
+      </ModalContent>
+    </Modal>
+  );
+}
+
 export default function Inventario() {
   const { isAdmin } = useAuth();
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);
   const [entrada, setEntrada] = useState(null);
+  const [salida, setSalida] = useState(null);
+  const [verSalidas, setVerSalidas] = useState(false);
   const [conteo, setConteo] = useState(false);
   const [cat, setCat] = useState('');
   const productos = useLive(() => supabase.from('productos').select('*').order('nombre'), ['productos']);
@@ -151,6 +219,7 @@ export default function Inventario() {
     ...(isAdmin ? [{ key: 'acc', label: '', num: true, render: (p) => (
       <Flex gap="6px" justify="flex-end">
         {p.tipo === 'propio' && <Button size="xs" variant="light" onClick={() => setEntrada(p)}>+ Entrada</Button>}
+        {p.tipo === 'propio' && <Button size="xs" variant="light" onClick={() => setSalida(p)}>− Salida</Button>}
         <Button size="xs" variant="lightBrand" onClick={() => setEdit(p)}>Editar</Button>
       </Flex>
     ) }] : []),
@@ -162,7 +231,7 @@ export default function Inventario() {
         <Text fontSize="22px" fontWeight="700" color={textColor}>Inventario</Text>
         {nBajos > 0 && <Badge colorScheme="orange">{nBajos} con poco stock</Badge>}
         <Text fontSize="sm" color="secondaryGray.600">{all.length} productos</Text>
-        <Flex ms="auto" gap="8px">{isAdmin && <><Button variant="lightBrand" onClick={() => setConteo(true)}>Conteo inicial</Button><Button variant="brand" onClick={() => setEdit({})}>Nuevo producto</Button></>}</Flex>
+        <Flex ms="auto" gap="8px">{isAdmin && <><Button variant="light" onClick={() => setVerSalidas(true)}>Salidas</Button><Button variant="lightBrand" onClick={() => setConteo(true)}>Conteo inicial</Button><Button variant="brand" onClick={() => setEdit({})}>Nuevo producto</Button></>}</Flex>
       </Flex>
       <SimpleGrid columns={{ base: 1, md: 3 }} gap="12px" mb="14px">
         <Box gridColumn={{ md: 'span 2' }}><TextIn type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar producto, categoría o proveedor" /></Box>
@@ -172,6 +241,8 @@ export default function Inventario() {
       {edit && <ProductoModal producto={edit} costo={edit.id ? costoDe[edit.id] : ''} categorias={categorias} onClose={() => setEdit(null)} />}
       {conteo && <ConteoInicial productos={all} onClose={() => setConteo(false)} />}
       {entrada && <EntradaModal producto={entrada} onClose={() => setEntrada(null)} />}
+      {salida && <SalidaModal producto={salida} onClose={() => setSalida(null)} />}
+      {verSalidas && <SalidasModal onClose={() => setVerSalidas(false)} />}
     </Card>
   );
 }

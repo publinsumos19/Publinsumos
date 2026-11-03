@@ -5,7 +5,7 @@ import { today } from '../format';
 import { toNum } from '../pricing';
 import { seedDb, USUARIOS } from './seed';
 
-const KEY = 'publiinsumos-demo-v8';
+const KEY = 'publiinsumos-demo-v9';
 const ROLE_KEY = 'publiinsumos-demo-rol';
 const SESSION_KEY = 'publiinsumos-demo-sesion';
 export const DEMO_PASS = '123456';
@@ -37,7 +37,7 @@ const fail = (message) => ({ data: null, error: { message } });
 // Tables only the admin can read or write (row-level security in schema.sql).
 const ADMIN_READ = ['config_costos', 'producto_costos', 'venta_costos'];
 const ADMIN_WRITE = ['conteos', 'config_publica', 'config_costos', 'productos', 'producto_costos', 'perfiles', 'contador', 'trabajo_costos'];
-ADMIN_READ.push('trabajo_costos');
+ADMIN_READ.push('trabajo_costos', 'salidas_stock');
 
 // Custom jobs the admin keeps private (Cartera privada) are invisible to the seller, like the RLS policies.
 const privadoTrabajo = (id) => !!db.trabajos.find((t) => t.id === id)?.privado;
@@ -87,6 +87,7 @@ const DEFAULTS = {
   conteos: () => ({ id: uuid(), usuario_id: me().id, creado: now() }),
   gastos: () => ({ id: uuid(), fecha: today(), categoria: 'Otro', nota: '', caja: null, usuario_id: me().id, creado: now() }),
   aperturas: () => ({ id: uuid(), usuario_id: me().id, creado: now(), base_insumos: 0, base_impresion: 0 }),
+  impresiones_danadas: () => ({ id: uuid(), fecha: today(), motivo: '', descripcion: '', usuario_id: me().id, creado: now() }),
   producto_costos: () => ({ costo: 0 }),
   config_publica: () => ({}),
   config_costos: () => ({}),
@@ -258,6 +259,18 @@ const RPC = {
     db.ventas = db.ventas.filter((x) => x.id !== v.id);
     db.venta_costos = db.venta_costos.filter((x) => x.venta_id !== v.id);
     db.abonos = db.abonos.filter((x) => x.venta_id !== v.id);
+    return null;
+  },
+  salida_stock({ p_producto, p_cant, p_motivo, p_nota }) {
+    if (!isAdmin()) throw new Error('Solo el administrador');
+    if (toNum(p_cant) <= 0) throw new Error('Cantidad inválida');
+    const prod = db.productos.find((x) => x.id === p_producto && x.tipo === 'propio');
+    if (!prod) throw new Error('Producto no encontrado');
+    prod.stock = toNum(prod.stock) - toNum(p_cant);
+    (db.salidas_stock ||= []).push({
+      id: uuid(), fecha: today(), producto_id: prod.id, producto_nombre: prod.nombre, cant: toNum(p_cant), motivo: p_motivo || 'Otro', nota: p_nota || '',
+      costo_unit: toNum(db.producto_costos.find((c) => c.producto_id === prod.id)?.costo), usuario_id: me().id, creado: now(),
+    });
     return null;
   },
   entrada_stock({ p_producto, p_cant, p_costo }) {

@@ -98,7 +98,7 @@ export default function Ajustes() {
       costoClicBN: toNum(c.costoClicBN),
       plastificadoCosto: toNum(c.plastificadoCosto),
       gramajes: Object.fromEntries(pub.gramajes.map((g) => [g.id, toNum(c.gramajes?.[g.id])])),
-      sustratos: Object.fromEntries(pub.sustratos.filter((s) => !s.corriente).map((s) => [s.id, toNum(c.sustratos?.[s.id])])),
+      sustratos: Object.fromEntries(pub.sustratos.filter((s) => !s.corriente && !s.servicio).map((s) => [s.id, toNum(c.sustratos?.[s.id])])),
     };
     const r1 = await supabase.from('config_publica').upsert({ id: 1, datos: pub, actualizado: new Date().toISOString() });
     const r2 = r1.error ? r1 : await supabase.from('config_costos').upsert({ id: 1, datos: cost, actualizado: new Date().toISOString() });
@@ -136,7 +136,7 @@ export default function Ajustes() {
                   <Td minW="220px"><Cell value={s.nombre} onChange={(e) => upd((y) => { y.sustratos[i].nombre = e.target.value; })} /></Td>
                   <Td minW="170px"><Select size="sm" borderRadius="10px" value={s.tamano} onChange={(e) => upd((y) => { y.sustratos[i].tamano = e.target.value; })}>{a.tamanos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}</Select></Td>
                   {s.precios.map((p, j) => <Td key={j}><Cell type="number" w="90px" value={p} onChange={(e) => upd((y) => { y.sustratos[i].precios[j] = e.target.value; })} /></Td>)}
-                  <Td>{s.corriente ? <Text fontSize="xs" color="secondaryGray.600">según gramaje</Text> : <Cell type="number" w="90px" value={c.sustratos?.[s.id] ?? 0} onChange={(e) => updC((y) => { y.sustratos[s.id] = e.target.value; })} />}</Td>
+                  <Td>{s.servicio ? <Text fontSize="xs" color="secondaryGray.600">cliente trae el papel</Text> : s.corriente ? <Text fontSize="xs" color="secondaryGray.600">según gramaje</Text> : <Cell type="number" w="90px" value={c.sustratos?.[s.id] ?? 0} onChange={(e) => updC((y) => { y.sustratos[s.id] = e.target.value; })} />}</Td>
                   <Td><IconButton size="xs" variant="ghost" aria-label="Quitar" icon={<MdClose />} onClick={() => upd((y) => { y.sustratos.splice(i, 1); })} /></Td>
                 </Tr>
               ))}
@@ -146,6 +146,7 @@ export default function Ajustes() {
         <Flex gap="10px" mt="12px" wrap="wrap">
           <Button size="sm" variant="light" onClick={() => upd((y) => { y.sustratos.push({ id: gid(), nombre: 'Corriente nuevo', tamano: y.tamanos[0].id, corriente: true, precios: [0, 0, 0, 0] }); })}>+ Papel corriente</Button>
           <Button size="sm" variant="light" onClick={() => upd((y) => { y.sustratos.push({ id: gid(), nombre: 'Especial nuevo', tamano: y.tamanos[0].id, corriente: false, precios: [0, 0, 0, 0] }); })}>+ Papel especial</Button>
+          <Button size="sm" variant="light" onClick={() => upd((y) => { y.sustratos.push({ id: gid(), nombre: 'Servicio nuevo', tamano: y.tamanos[0].id, corriente: false, servicio: true, precios: [0, 0, 0, 0] }); })}>+ Servicio (cliente trae el papel)</Button>
         </Flex>
       </Card>
 

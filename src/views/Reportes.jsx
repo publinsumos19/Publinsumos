@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLive } from '../hooks/useLive';
 import { supabase } from '../lib/supabase';
 import { addDays, fdate, intf, lastMonths, mesKey, mesLabel, money, mondayOf, monthRange, PAGOS, recibo, shiftMonth, today } from '../lib/format';
-import { toNum } from '../lib/pricing';
+import { costoDano, toNum } from '../lib/pricing';
 
 function rango(periodo, mes) {
   const t = today();
@@ -37,7 +37,7 @@ function Mini({ title, children }) {
 }
 
 export default function Reportes() {
-  const { cfg } = useAuth();
+  const { cfg, costos } = useAuth();
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const [periodo, setPeriodo] = useState('mes');
   const [mes, setMes] = useState(mesKey(today()));
@@ -47,6 +47,9 @@ export default function Reportes() {
   const productos = useLive(() => supabase.from('productos').select('*').eq('tipo', 'propio'), ['productos']);
   const gastos = useLive(() => supabase.from('gastos').select('*').gte('fecha', R.desde).lte('fecha', R.hasta), ['gastos'], [R.desde, R.hasta]);
   const G = resumenGastos(gastos.data || []);
+  const danos = useLive(() => supabase.from('impresiones_danadas').select('*').gte('fecha', R.desde).lte('fecha', R.hasta), ['impresiones_danadas'], [R.desde, R.hasta]);
+  const dn = danos.data || [];
+  const perdida = dn.reduce((a, d) => a + costoDano(cfg, costos, d), 0);
 
   const vs = ventas.data || [];
   const tot = vs.reduce((a, v) => a + toNum(v.total), 0);
@@ -112,7 +115,8 @@ export default function Reportes() {
         <MiniStatistics icon={MdPrint} name="Impresiones" value={intf(imps.reduce((a, i) => a + toNum(i.cant), 0))} help={`${intf(imps.reduce((a, i) => a + toNum(i.clics), 0))} clics vendidos`} />
         <MiniStatistics icon={MdAccountBalanceWallet} name="Por cobrar hoy" value={money(porCobrar)} help="Toda la cartera" tone="orange" />
         <MiniStatistics icon={MdMoneyOff} name="Gastos" value={money(G.total)} help={G.categorias.slice(0, 2).map((c) => `${c.k} ${money(c.total)}`).join(' · ') || 'Sin gastos'} tone="red" />
-        <MiniStatistics icon={MdSavings} name="Utilidad después de gastos" value={money(tot - costo - G.total)} help={`Ganancia ${money(tot - costo)} - gastos ${money(G.total)}`} tone={tot - costo - G.total < 0 ? 'red' : 'green'} />
+        <MiniStatistics icon={MdPrint} name="Impresiones dañadas" value={money(perdida)} help={`${intf(dn.reduce((a, d) => a + toNum(d.cant), 0))} hojas · ${intf(dn.reduce((a, d) => a + toNum(d.clics), 0))} clics no cobrados`} tone="red" />
+        <MiniStatistics icon={MdSavings} name="Utilidad después de gastos y daños" value={money(tot - costo - G.total - perdida)} help={`Ganancia ${money(tot - costo)} - gastos ${money(G.total)} - daños ${money(perdida)}`} tone={tot - costo - G.total - perdida < 0 ? 'red' : 'green'} />
       </SimpleGrid>
       <Card>
         <Text fontSize="lg" fontWeight="700" color={textColor}>Ventas por día</Text>
@@ -130,6 +134,9 @@ export default function Reportes() {
         </Mini>
         <Mini title="Productos y servicios más vendidos">
           <DataTable rows={group(items.filter((i) => i.tipo !== 'imp'), (i) => i.desc).slice(0, 8)} columns={[{ key: 'k', label: 'Producto' }, { key: 'cant', label: 'Cantidad', num: true, render: (g) => intf(g.cant) }, { key: 'total', label: 'Total', num: true, render: (g) => money(g.total) }]} empty="Sin productos vendidos en este periodo." />
+        </Mini>
+        <Mini title="Impresiones dañadas por motivo">
+          <DataTable rows={group(dn.map((d) => ({ ...d, total: costoDano(cfg, costos, d) })), (d) => String(d.motivo || 'Otro').split(':')[0])} columns={[{ key: 'k', label: 'Motivo' }, { key: 'cant', label: 'Hojas', num: true, render: (g) => intf(g.cant) }, { key: 'total', label: 'Pérdida', num: true, render: (g) => money(g.total) }]} empty="No hubo impresiones dañadas en este periodo." />
         </Mini>
         <Mini title="Poco stock">
           <DataTable rows={bajos} columns={[{ key: 'nombre', label: 'Producto' }, { key: 'stock', label: 'Stock', num: true, render: (p) => intf(p.stock) }, { key: 'stock_min', label: 'Mínimo', num: true, render: (p) => intf(p.stock_min) }]} empty="Todo el inventario está por encima del mínimo." />

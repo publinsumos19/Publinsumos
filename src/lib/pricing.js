@@ -34,12 +34,13 @@ export function calcImpresion(cfg, form, costos) {
   }
   let costo = null;
   if (costos) {
-    const papel = s.corriente ? toNum(costos.gramajes?.[form.gram]) : toNum(costos.sustratos?.[s.id]);
+    const papel = s.servicio ? 0 : s.corriente ? toNum(costos.gramajes?.[form.gram]) : toNum(costos.sustratos?.[s.id]);
     costo = Math.round(
       cant * (costoClicDe(costos, form.color) * t.clics + papel / (t.piezas || 1)) + plast * toNum(costos.plastificadoCosto),
     );
   }
   const desc =
+    (s.servicio ? 'Solo impresión (cliente trae el papel) · ' : '') +
     s.nombre +
     (s.corriente && g ? ' · ' + g.nombre : '') +
     ' · ' +
@@ -87,3 +88,7 @@ export function costoItem(cfg, costos, item, costoProducto = 0) {
 }
 
 export const cartTotal = (cart) => cart.reduce((a, i) => a + toNum(i.total), 0);
+
+// Approximate cost of a damaged print (not charged) with the current costs. Admin only.
+export const costoDano = (cfg, costos, d) =>
+  calcImpresion(cfg, { sus: d.sus, gram: d.gram, color: d.color, cant: d.cant, plast: 0 }, costos)?.costo ?? 0;

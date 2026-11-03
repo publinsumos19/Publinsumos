@@ -723,6 +723,7 @@ begin
   delete from aperturas where true;
   delete from gastos where true;
   delete from contador where true;
+  if to_regclass('public.impresiones_danadas') is not null then delete from impresiones_danadas where true; end if;
   perform setval(pg_get_serial_sequence('public.ventas', 'numero'), 1, false);
   perform setval(pg_get_serial_sequence('public.trabajos', 'numero'), 1, false);
   if to_regclass('public.remision_seq') is not null then perform setval('public.remision_seq', 1, false); end if;
@@ -775,12 +776,15 @@ language plpgsql security definer set search_path = public as $$
 declare
   orden text[] := array['config_publica', 'config_costos', 'perfiles', 'productos', 'producto_costos', 'clientes', 'ventas', 'venta_costos', 'abonos',
     'contador', 'trabajos', 'trabajo_costos', 'trabajo_abonos', 'cierres', 'aperturas', 'gastos', 'conteos'];
+  extra text[] := array['salidas_stock', 'impresiones_danadas'];
   t text;
   cols text;
   tablas jsonb := p_datos->'tablas';
   s record;
 begin
   if not public.es_admin() then raise exception 'Solo el administrador puede restaurar copias'; end if;
+  -- Tablas agregadas en la versión 7 (una copia vieja no las trae: quedan vacías).
+  orden := orden || array(select x from unnest(extra) x where to_regclass('public.' || x) is not null);
   if p_confirma is distinct from 'RESTAURAR' then raise exception 'Escribe RESTAURAR para confirmar'; end if;
   if tablas is null or jsonb_typeof(tablas->'productos') is distinct from 'array' or jsonb_typeof(tablas->'perfiles') is distinct from 'array' then
     raise exception 'El archivo no es una copia de seguridad de este sistema';
@@ -876,3 +880,95 @@ update public.config_publica
      'correo', case when coalesce(datos->'negocio'->>'correo', '') = '' then 'publinsumos19@gmail.com' end,
      'telefono', case when coalesce(datos->'negocio'->>'telefono', '') = '' then '3108654481' end)))
  where id = 1;
+
+-- ============================================================
+-- Versión 7: servicio de impresión cuando el cliente trae el papel.
+-- Se agregan una sola vez (marca "v7Servicios"); si el administrador
+-- después los cambia o quita en Ajustes, no vuelven a aparecer.
+-- No toca los papeles que ya existen.
+-- ============================================================
+update public.config_publica
+   set datos = jsonb_set(datos, '{sustratos}', coalesce(datos->'sustratos', '[]') || '[
+     {"id": "sv_teslin", "nombre": "Teslin carta", "tamano": "carta", "corriente": false, "servicio": true, "precios": [3000, 3000, 3000, 3000]},
+     {"id": "sv_finos", "nombre": "Papeles finos carta u oficio", "tamano": "carta", "corriente": false, "servicio": true, "precios": [3000, 3000, 3000, 3000]},
+     {"id": "sv_foto", "nombre": "Papel fotográfico carta", "tamano": "carta", "corriente": false, "servicio": true, "precios": [3000, 3000, 3000, 3000]},
+     {"id": "sv_pergamino", "nombre": "Papel pergamino carta", "tamano": "carta", "corriente": false, "servicio": true, "precios": [3000, 3000, 3000, 3000]},
+     {"id": "sv_acetato", "nombre": "Acetato carta", "tamano": "carta", "corriente": false, "servicio": true, "precios": [3000, 3000, 3000, 3000]},
+     {"id": "sv_met48", "nombre": "Metalizado 33 x 48 cm", "tamano": "t48", "corriente": false, "servicio": true, "precios": [4000, 3600, 3300, 3000]}
+   ]'::jsonb) || '{"v7Servicios": true}'
+ where id = 1 and not coalesce((datos->>'v7Servicios')::boolean, false);
+
+-- ============================================================
+-- Versión 7: salidas de inventario e impresiones dañadas.
+-- Solo agrega tablas y funciones nuevas; no cambia datos existentes.
+-- ============================================================
+
+-- Unidades que salen del almacén sin venderse (dañado, uso interno, devolución...).
+create table if not exists public.salidas_stock (
+  id uuid primary key default gen_random_uuid(),
+  fecha date not null default public.hoy(),
+  producto_id uuid references public.productos on delete set null,
+  producto_nombre text not null default '',
+  cant numeric not null check (cant > 0),
+  motivo text not null default 'Otro',
+  nota text not null default '',
+  costo_unit numeric not null default 0,
+  usuario_id uuid references public.perfiles on delete set null default auth.uid(),
+  creado timestamptz not null default now()
+);
+create index if not exists salidas_stock_fecha_idx on public.salidas_stock (fecha);
+alter table public.salidas_stock enable row level security;
+drop policy if exists salidas_leer on public.salidas_stock;
+create policy salidas_leer on public.salidas_stock for select using (public.es_admin());
+
+create or replace function public.salida_stock(p_producto uuid, p_cant numeric, p_motivo text, p_nota text) returns void
+language plpgsql security definer set search_path = public as $$
+declare p record;
+begin
+  if not es_admin() then raise exception 'Solo el administrador'; end if;
+  if coalesce(p_cant, 0) <= 0 then raise exception 'Cantidad inválida'; end if;
+  select * into p from productos where id = p_producto and tipo = 'propio';
+  if not found then raise exception 'Producto no encontrado'; end if;
+  update productos set stock = coalesce(stock, 0) - p_cant where id = p_producto;
+  insert into salidas_stock (producto_id, producto_nombre, cant, motivo, nota, costo_unit)
+  values (p_producto, p.nombre, p_cant, coalesce(nullif(trim(p_motivo), ''), 'Otro'), coalesce(p_nota, ''),
+          coalesce((select costo from producto_costos where producto_id = p_producto), 0));
+end $$;
+revoke all on function public.salida_stock(uuid, numeric, text, text) from public, anon;
+grant execute on function public.salida_stock(uuid, numeric, text, text) to authenticated;
+
+-- Impresiones que salieron malas: no se cobran, pero gastaron clics (y papel si era del negocio).
+-- El costo no se guarda aquí (el vendedor puede leer la tabla); la app lo calcula para el administrador.
+create table if not exists public.impresiones_danadas (
+  id uuid primary key default gen_random_uuid(),
+  fecha date not null default public.hoy(),
+  sus text not null,
+  gram text,
+  color boolean not null default true,
+  cant numeric not null check (cant > 0),
+  clics numeric not null default 0,
+  descripcion text not null default '',
+  motivo text not null default '',
+  usuario_id uuid references public.perfiles on delete set null default auth.uid(),
+  creado timestamptz not null default now()
+);
+create index if not exists impresiones_danadas_fecha_idx on public.impresiones_danadas (fecha);
+alter table public.impresiones_danadas enable row level security;
+drop policy if exists danadas_leer on public.impresiones_danadas;
+create policy danadas_leer on public.impresiones_danadas for select using (public.es_activo());
+drop policy if exists danadas_crear on public.impresiones_danadas;
+create policy danadas_crear on public.impresiones_danadas for insert with check (public.es_activo());
+drop policy if exists danadas_borrar on public.impresiones_danadas;
+create policy danadas_borrar on public.impresiones_danadas for delete using (public.es_admin() or (public.es_activo() and usuario_id = auth.uid() and fecha = public.hoy()));
+
+grant select, insert, delete on public.impresiones_danadas to authenticated;
+grant select on public.salidas_stock to authenticated;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['salidas_stock', 'impresiones_danadas'] loop
+    execute format('drop trigger if exists marcar_cambio on public.%I', t);
+    execute format('create trigger marcar_cambio after insert or update or delete on public.%I for each statement execute function public.marcar_cambio()', t);
+  end loop;
+end $$;
