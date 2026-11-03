@@ -1,7 +1,7 @@
 // Custom jobs (cotizador personalizado): totals, WhatsApp text and a printable quote.
 import { fdate, money, intf, today } from './format';
 import { toNum } from './pricing';
-import LOGO from '../assets/logo-publiinsumos.jpg?inline';
+import LOGO from '../assets/logo-publiinsumos.png?inline';
 
 export const ESTADOS = {
   cotizacion: ['Cotización', 'gray'],

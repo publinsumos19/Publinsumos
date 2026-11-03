@@ -6,27 +6,17 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { IoMenuOutline } from 'react-icons/io5';
 import { useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import LOGO from '../../assets/logo-publiinsumos.png';
 
 function Brand() {
   const { cfg } = useAuth();
-  const logoColor = useColorModeValue('navy.700', 'white');
-  const name = cfg?.negocio?.nombre || 'Publiinsumos';
+  // The logo has navy letters: in dark mode it sits on a white card so it stays readable.
+  const fondo = useColorModeValue('transparent', 'white');
   return (
     <Flex align="center" direction="column">
-      <Flex align="center" gap="10px" my="32px">
-        {cfg?.negocio?.logo ? (
-          <Box as="img" src={cfg.negocio.logo} alt="" h="34px" maxW="160px" objectFit="contain" />
-        ) : (
-          <Box display="grid" gridTemplateColumns="repeat(2, 9px)" gap="3px" aria-hidden>
-            {['#00A3D9', '#E0307C', '#F2B705', 'navy.700'].map((c) => (
-              <Box key={c} w="9px" h="9px" borderRadius="50%" bg={c} />
-            ))}
-          </Box>
-        )}
-        <Text fontSize="26px" fontWeight="800" color={logoColor} letterSpacing="-1px" noOfLines={1}>
-          {name}
-        </Text>
-      </Flex>
+      <Box my="26px" bg={fondo} borderRadius="14px" px="12px" py="8px">
+        <Box as="img" src={cfg?.negocio?.logo || LOGO} alt={cfg?.negocio?.nombre || 'Publiinsumos'} h="64px" maxW="210px" objectFit="contain" />
+      </Box>
       <Box h="1px" w="100%" bg="rgba(135, 140, 189, 0.3)" mb="20px" />
     </Flex>
   );
