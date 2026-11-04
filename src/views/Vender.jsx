@@ -17,7 +17,7 @@ import { margenDe, precioConMargen } from '../lib/margen';
 import { abrirRecordatorios } from '../components/Recordatorios';
 import BuscadorProducto from '../components/BuscadorProducto';
 import DanoModal from '../components/DanoModal';
-import { cantItem, corteMedia, precioMedia, tipoLamina } from '../lib/lamina';
+import { cantItem, precioMedia, tipoLamina } from '../lib/lamina';
 
 const emptyServ = { id: '', desc: '', cant: 1, pu: '', costo: '' };
 
@@ -91,7 +91,7 @@ export default function Vender() {
     if (!prodSel || cant <= 0) return;
     if (prod.media && laminaSel) {
       // Each half takes 0.5 sheet from stock; the price already includes the cut.
-      add({ tipo: 'prod', productoId: prodSel.id, desc: `${prodSel.nombre} · media lámina (incluye corte)`, cant: cant / 2, medias: cant, pu: toNum(prod.pu), total: cant * toNum(prod.pu), costoPrev: (cant / 2) * toNum(costoDe[prodSel.id]) });
+      add({ tipo: 'prod', productoId: prodSel.id, desc: `${prodSel.nombre} · media lámina`, cant: cant / 2, medias: cant, pu: toNum(prod.pu), total: cant * toNum(prod.pu), costoPrev: (cant / 2) * toNum(costoDe[prodSel.id]) });
     } else {
       add({ tipo: 'prod', productoId: prodSel.id, desc: prodSel.nombre, cant, pu: toNum(prod.pu), total: cant * toNum(prod.pu), costoPrev: cant * toNum(costoDe[prodSel.id]) });
     }
@@ -236,8 +236,8 @@ export default function Vender() {
                 <Flex align="center" gap="10px" wrap="wrap">
                   <Text fontSize="sm" color="secondaryGray.600">¿Lámina completa o media?</Text>
                   <Segmented value={prod.media ? 'media' : 'completa'} onChange={(v) => setMedia(v === 'media')}
-                    options={[['completa', 'Completa'], ['media', `Media lámina (+${money(corteMedia(cfg, laminaSel))} corte)`]]} />
-                  {prod.media && <Text fontSize="xs" color="secondaryGray.600" w="100%">Mitad de {money(prodSel.precio)} + corte = {money(precioMedia(cfg, prodSel))} c/u. Cada media descuenta 0,5 lámina del inventario.</Text>}
+                    options={[['completa', 'Completa'], ['media', 'Media lámina']]} />
+                  {prod.media && <Text fontSize="xs" color="secondaryGray.600" w="100%">Cada media descuenta 0,5 lámina del inventario.</Text>}
                 </Flex>
               )}
               {sinStock && <Text fontSize="sm" color="orange.500" fontWeight="600">Solo hay {cantf(prodSel.stock)} {prodSel.unidad} en inventario. Puedes venderlo igual, pero revisa el stock.</Text>}

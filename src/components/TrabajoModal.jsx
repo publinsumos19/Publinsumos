@@ -20,6 +20,7 @@ import { FormaPagoPicker } from './ClienteModal';
 import { canPrint, printHtml, saveFile, savePdf } from '../lib/export';
 import { Field, NumIn, Sel, TextIn } from './Field';
 import ShareModal from './ShareModal';
+import { precioMedia, tipoLamina } from '../lib/lamina';
 import BuscadorProducto from './BuscadorProducto';
 
 const nueva = () => ({ concepto: '', detalle: '', cant: 1, pu: '' });
@@ -139,13 +140,29 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
   // Picking a store product fills its name, price and (for the admin) its cost.
   const elegirProducto = (i, p) => {
     const c = toNum((pCostos.data || []).find((x) => x.producto_id === p.id)?.costo);
-    setT({ ...t, lineas: t.lineas.map((l, j) => (j === i ? { ...l, concepto: p.nombre, pu: p.precio ?? '', producto_id: p.id } : l)) });
+    setT({ ...t, lineas: t.lineas.map((l, j) => (j === i ? { ...l, concepto: p.nombre, pu: p.precio ?? '', producto_id: p.id, media: false } : l)) });
     if (isAdmin) {
       const cs = [...costos]; cs[i] = c || ''; setCostos(cs);
       const m = [...margenes]; m[i] = c ? margenDe(c, p.precio) : ''; setMargenes(m);
     }
   };
-  const setConcepto = (i, v) => setT({ ...t, lineas: t.lineas.map((l, j) => (j === i ? { ...l, concepto: v, producto_id: null } : l)) });
+  // Acrylic and polystyrene sheets can be quoted by halves: the price becomes half + cut (internal), cant counts halves.
+  const MEDIA_TXT = ' (media lámina)';
+  const setMedia = (i, media) => {
+    const l = t.lineas[i];
+    const p = (productos.data || []).find((x) => x.id === l.producto_id);
+    if (!p) return;
+    const nombre = l.concepto.endsWith(MEDIA_TXT) ? l.concepto.slice(0, -MEDIA_TXT.length) : l.concepto;
+    const pu = media ? precioMedia(cfg, p) : p.precio ?? '';
+    setT({ ...t, lineas: t.lineas.map((x, j) => (j === i ? { ...x, media, concepto: media ? nombre + MEDIA_TXT : nombre, pu } : x)) });
+    if (isAdmin) {
+      const c = Math.round(toNum((pCostos.data || []).find((x) => x.producto_id === p.id)?.costo) / (media ? 2 : 1));
+      const cs = [...costos]; cs[i] = c || ''; setCostos(cs);
+      const m = [...margenes]; m[i] = c ? margenDe(c, pu) : ''; setMargenes(m);
+    }
+  };
+  const laminaDe = (l) => l.producto_id && tipoLamina((productos.data || []).find((x) => x.id === l.producto_id));
+  const setConcepto = (i, v) => setT({ ...t, lineas: t.lineas.map((l, j) => (j === i ? { ...l, concepto: v, producto_id: null, media: false } : l)) });
   const setPu = (i, v) => { setL(i, 'pu', v); const m = [...margenes]; m[i] = margenDe(costos[i], v); setMargenes(m); };
 
   const sucursales = (clientes.data || []).find((x) => x.nombre === t.cliente)?.sucursales || [];
@@ -170,7 +187,7 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
   };
 
   const limpio = () => {
-    const lineas = t.lineas.filter((l) => l.concepto.trim() || toNum(l.pu)).map((l) => ({ concepto: l.concepto.trim() || 'Sin nombre', detalle: (l.detalle || '').trim(), ...(l.producto_id ? { producto_id: l.producto_id } : {}), cant: toNum(l.cant) || 1, pu: toNum(l.pu), total: lineaTotal(l),
+    const lineas = t.lineas.filter((l) => l.concepto.trim() || toNum(l.pu)).map((l) => ({ concepto: l.concepto.trim() || 'Sin nombre', detalle: (l.detalle || '').trim(), ...(l.producto_id ? { producto_id: l.producto_id } : {}), ...(l.media && l.producto_id ? { media: true } : {}), cant: toNum(l.cant) || 1, pu: toNum(l.pu), total: lineaTotal(l),
       ...(esCompuesto(l) ? { componentes: l.componentes.filter((c) => (c.concepto || '').trim() || toNum(c.pu)).map((c) => ({ concepto: (c.concepto || '').trim() || 'Sin nombre', cant: toNum(c.cant) || 1, pu: toNum(c.pu), ...(c.producto_id ? { producto_id: c.producto_id } : {}) })) } : {}) }));
     const tot = Math.max(0, subtotal(lineas) - toNum(t.descuento));
     const vivo = ['aprobado', 'entregado'].includes(t.estado);
@@ -233,6 +250,8 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
         const propio = (l) => (productos.data || []).some((x) => x.id === l.producto_id && x.tipo === 'propio');
         const items = saved.lineas.map((l, i) => ({
           ...(propio(l) ? { tipo: 'prod', productoId: l.producto_id } : { tipo: 'pers' }), desc: `${saved.titulo || 'Trabajo'}: ${l.concepto}${l.detalle ? ` (${l.detalle})` : ''}`, cant: l.cant, pu: l.pu, total: l.total,
+          // A half sheet takes 0.5 from stock; the receipt still says how many halves.
+          ...(propio(l) && l.media ? { cant: toNum(l.cant) / 2, medias: toNum(l.cant) } : {}),
           ...(!propio(l) && isAdmin && toNum(costos[i]) ? { costoManual: toNum(costos[i]) } : {}),
         }));
         if (saved.descuento) items.push({ tipo: 'pers', desc: `${saved.titulo || 'Trabajo'}: descuento`, cant: 1, pu: -saved.descuento, total: -saved.descuento });
@@ -375,6 +394,9 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
                     </Flex>
                   </SimpleGrid>
                   <Flex mt="8px" align="center" gap="8px" wrap="wrap">
+                    {laminaDe(l) && !esCompuesto(l) && (
+                      <Checkbox size="sm" colorScheme="green" isChecked={!!l.media} onChange={(e) => setMedia(i, e.target.checked)} isDisabled={!editable} me="8px">Media lámina</Checkbox>
+                    )}
                     <Button size="xs" variant={esCompuesto(l) ? 'lightBrand' : 'ghost'} leftIcon={<MdAccountTree />}
                       onClick={() => (esCompuesto(l) ? setAbiertos({ ...abiertos, [i]: !abiertos[i] }) : editable && addComp(i))} isDisabled={!editable && !esCompuesto(l)}>
                       {esCompuesto(l) ? `Componentes (${l.componentes.length}) ${abiertos[i] ? '▲' : '▼'}` : 'Convertir en producto compuesto'}
