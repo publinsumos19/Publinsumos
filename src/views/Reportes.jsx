@@ -11,7 +11,7 @@ import { Sel } from '../components/Field';
 import { useAuth } from '../context/AuthContext';
 import { useLive } from '../hooks/useLive';
 import { supabase } from '../lib/supabase';
-import { addDays, fdate, intf, lastMonths, mesKey, mesLabel, money, mondayOf, monthRange, PAGOS, recibo, shiftMonth, today } from '../lib/format';
+import { addDays, cantf, fdate, intf, lastMonths, mesKey, mesLabel, money, mondayOf, monthRange, PAGOS, recibo, shiftMonth, today } from '../lib/format';
 import { costoDano, toNum } from '../lib/pricing';
 
 function rango(periodo, mes) {
@@ -133,7 +133,7 @@ export default function Reportes() {
           <DataTable rows={group(vs, (v) => v.cliente).slice(0, 8)} columns={[{ key: 'k', label: 'Cliente' }, { key: 'n', label: 'Compras', num: true }, { key: 'total', label: 'Total', num: true, render: (g) => money(g.total) }]} empty="Sin ventas en este periodo." />
         </Mini>
         <Mini title="Productos y servicios más vendidos">
-          <DataTable rows={group(items.filter((i) => i.tipo !== 'imp'), (i) => i.desc).slice(0, 8)} columns={[{ key: 'k', label: 'Producto' }, { key: 'cant', label: 'Cantidad', num: true, render: (g) => intf(g.cant) }, { key: 'total', label: 'Total', num: true, render: (g) => money(g.total) }]} empty="Sin productos vendidos en este periodo." />
+          <DataTable rows={group(items.filter((i) => i.tipo !== 'imp'), (i) => i.desc).slice(0, 8)} columns={[{ key: 'k', label: 'Producto' }, { key: 'cant', label: 'Cantidad', num: true, render: (g) => cantf(g.cant) }, { key: 'total', label: 'Total', num: true, render: (g) => money(g.total) }]} empty="Sin productos vendidos en este periodo." />
         </Mini>
         <Mini title="Impresiones dañadas por motivo">
           <DataTable rows={group(dn.map((d) => ({ ...d, total: costoDano(cfg, costos, d) })), (d) => String(d.motivo || 'Otro').split(':')[0])} columns={[{ key: 'k', label: 'Motivo' }, { key: 'cant', label: 'Hojas', num: true, render: (g) => intf(g.cant) }, { key: 'total', label: 'Pérdida', num: true, render: (g) => money(g.total) }]} empty="No hubo impresiones dañadas en este periodo." />

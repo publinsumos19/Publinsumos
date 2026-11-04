@@ -1,4 +1,5 @@
 import { money, intf, fdate, today, recibo, PAGOS } from './format';
+import { cantItem } from './lamina';
 
 export function receiptText(negocio, v, kind) {
   const n = negocio || {};
@@ -7,7 +8,7 @@ export function receiptText(negocio, v, kind) {
   if (v.cliente) L.push(`Cliente: ${v.cliente}`);
   L.push('');
   for (const it of v.items) {
-    L.push(`• ${intf(it.cant)} × ${it.desc}`);
+    L.push(`• ${cantItem(it)} × ${it.desc}`);
     L.push(`   ${money(it.pu)} c/u${it.extra ? ' + plastificado ' + money(it.extra) : ''} = ${money(it.total)}`);
   }
   L.push('', `*Total: ${money(v.total)}*`);

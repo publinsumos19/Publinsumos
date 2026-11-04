@@ -77,3 +77,23 @@ describe('servicio de impresión (el cliente trae el papel)', () => {
     expect(costoDano(cfgS, costosS, { sus: 'sv_met48', color: true, cant: 4 })).toBe(4 * 2 * 655);
   });
 });
+
+describe('media lámina', async () => {
+  const { tipoLamina, precioMedia, cantItem } = await import('./lamina');
+  it('detects acrylic and polystyrene sheets by category only', () => {
+    expect(tipoLamina({ categoria: 'Láminas de acrílico' })).toBe('acrilico');
+    expect(tipoLamina({ categoria: 'Láminas de poliestireno' })).toBe('poliestireno');
+    expect(tipoLamina({ categoria: 'Accesorios acrílicos' })).toBe(null);
+    expect(tipoLamina({ categoria: 'Vitrina' })).toBe(null);
+  });
+  it('half price plus cut, configurable', () => {
+    expect(precioMedia({}, { categoria: 'Láminas de acrílico', precio: 286200 })).toBe(143100 + 6000);
+    expect(precioMedia({}, { categoria: 'Láminas de poliestireno', precio: 20000 })).toBe(10000 + 1000);
+    expect(precioMedia({ mediaLamina: { acrilico: 8000 } }, { categoria: 'Láminas de acrílico', precio: 100000 })).toBe(58000);
+  });
+  it('shows halves on tickets', () => {
+    expect(cantItem({ cant: 1, medias: 2 })).toBe('2 medias');
+    expect(cantItem({ cant: 0.5, medias: 1 })).toBe('1 media');
+    expect(cantItem({ cant: 3 })).toBe('3');
+  });
+});

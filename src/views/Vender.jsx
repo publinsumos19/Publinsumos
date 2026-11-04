@@ -17,6 +17,7 @@ import { margenDe, precioConMargen } from '../lib/margen';
 import { abrirRecordatorios } from '../components/Recordatorios';
 import BuscadorProducto from '../components/BuscadorProducto';
 import DanoModal from '../components/DanoModal';
+import { cantItem, corteMedia, precioMedia, tipoLamina } from '../lib/lamina';
 
 const emptyServ = { id: '', desc: '', cant: 1, pu: '', costo: '' };
 
@@ -69,6 +70,8 @@ export default function Vender() {
   const propios = (productos.data || []).filter((p) => p.tipo === 'propio');
   const tercerizados = (productos.data || []).filter((p) => p.tipo === 'tercerizado');
   const prodSel = propios.find((p) => p.id === prod.id) || null;
+  const laminaSel = tipoLamina(prodSel);
+  const setMedia = (media) => setProd({ ...prod, media, pu: media ? precioMedia(cfg, prodSel) : prodSel?.precio ?? '' });
   const total = cartTotal(cart);
   const r = calcImpresion(cfg, imp, costos);
   const sus = cfg.sustratos.find((s) => s.id === imp.sus);
@@ -86,7 +89,12 @@ export default function Vender() {
   const addProd = () => {
     const cant = toNum(prod.cant);
     if (!prodSel || cant <= 0) return;
-    add({ tipo: 'prod', productoId: prodSel.id, desc: prodSel.nombre, cant, pu: toNum(prod.pu), total: cant * toNum(prod.pu), costoPrev: cant * toNum(costoDe[prodSel.id]) });
+    if (prod.media && laminaSel) {
+      // Each half takes 0.5 sheet from stock; the price already includes the cut.
+      add({ tipo: 'prod', productoId: prodSel.id, desc: `${prodSel.nombre} · media lámina (incluye corte)`, cant: cant / 2, medias: cant, pu: toNum(prod.pu), total: cant * toNum(prod.pu), costoPrev: (cant / 2) * toNum(costoDe[prodSel.id]) });
+    } else {
+      add({ tipo: 'prod', productoId: prodSel.id, desc: prodSel.nombre, cant, pu: toNum(prod.pu), total: cant * toNum(prod.pu), costoPrev: cant * toNum(costoDe[prodSel.id]) });
+    }
     setProd((f) => ({ ...f, cant: 1 }));
   };
   const addServ = () => {
@@ -137,7 +145,7 @@ export default function Vender() {
   };
 
   const enCarro = (id) => cart.filter((i) => i.productoId === id).reduce((a, i) => a + i.cant, 0);
-  const sinStock = prodSel && toNum(prodSel.stock) - enCarro(prodSel.id) - toNum(prod.cant) < 0;
+  const sinStock = prodSel && toNum(prodSel.stock) - enCarro(prodSel.id) - toNum(prod.cant) * (prod.media && laminaSel ? 0.5 : 1) < 0;
 
   return (
     <Grid templateColumns={{ base: '1fr', lg: '1.4fr 1fr' }} gap="20px" alignItems="start">
@@ -219,12 +227,20 @@ export default function Vender() {
               <Grid templateColumns={{ base: '1fr', md: '2fr 1fr 1fr' }} gap="14px">
                 <Field label="Producto">
                   <BuscadorProducto productos={propios} value={prod.id} label={prodSel ? `${prodSel.nombre} (${cantf(prodSel.stock)} ${prodSel.unidad})` : ''}
-                    onSelect={(p) => setProd({ ...prod, id: p.id, pu: p.precio ?? '' })} />
+                    onSelect={(p) => setProd({ ...prod, id: p.id, pu: p.precio ?? '', media: false })} />
                 </Field>
-                <Field label="Cantidad"><NumIn min={1} value={prod.cant} onChange={(e) => setProd({ ...prod, cant: e.target.value })} /></Field>
+                <Field label={prod.media && laminaSel ? 'Cantidad de medias' : 'Cantidad'}><NumIn min={1} value={prod.cant} onChange={(e) => setProd({ ...prod, cant: e.target.value })} /></Field>
                 <Field label="Precio unitario"><NumIn min={0} value={prod.pu} onChange={(e) => setProd({ ...prod, pu: e.target.value })} /></Field>
               </Grid>
-              {sinStock && <Text fontSize="sm" color="orange.500" fontWeight="600">Solo hay {intf(prodSel.stock)} {prodSel.unidad} en inventario. Puedes venderlo igual, pero revisa el stock.</Text>}
+              {laminaSel && (
+                <Flex align="center" gap="10px" wrap="wrap">
+                  <Text fontSize="sm" color="secondaryGray.600">¿Lámina completa o media?</Text>
+                  <Segmented value={prod.media ? 'media' : 'completa'} onChange={(v) => setMedia(v === 'media')}
+                    options={[['completa', 'Completa'], ['media', `Media lámina (+${money(corteMedia(cfg, laminaSel))} corte)`]]} />
+                  {prod.media && <Text fontSize="xs" color="secondaryGray.600" w="100%">Mitad de {money(prodSel.precio)} + corte = {money(precioMedia(cfg, prodSel))} c/u. Cada media descuenta 0,5 lámina del inventario.</Text>}
+                </Flex>
+              )}
+              {sinStock && <Text fontSize="sm" color="orange.500" fontWeight="600">Solo hay {cantf(prodSel.stock)} {prodSel.unidad} en inventario. Puedes venderlo igual, pero revisa el stock.</Text>}
               <Flex justify="space-between" align="center" bg={panel} borderRadius="16px" p="16px">
                 <Text fontSize="28px" fontWeight="700" color={textColor}>{money(toNum(prod.cant) * toNum(prod.pu))}</Text>
                 <Button variant="brand" onClick={addProd} isDisabled={!prodSel || toNum(prod.cant) <= 0}>Agregar</Button>
@@ -265,7 +281,7 @@ export default function Vender() {
           <Flex key={i} gap="10px" py="10px" borderBottom="1px dashed" borderColor="gray.200" align="start">
             <Box flex="1" minW={0}>
               <Text fontWeight="600" fontSize="sm" color={textColor}>{it.desc}</Text>
-              <Text fontSize="xs" color="secondaryGray.600">{intf(it.cant)} × {money(it.pu)}{it.extra ? ` + plastificado ${money(it.extra)}` : ''}</Text>
+              <Text fontSize="xs" color="secondaryGray.600">{cantItem(it)} × {money(it.pu)}{it.extra ? ` + plastificado ${money(it.extra)}` : ''}</Text>
             </Box>
             <Text fontWeight="700" fontSize="sm" sx={{ fontVariantNumeric: 'tabular-nums' }}>{money(it.total)}</Text>
             <IconButton size="xs" variant="ghost" aria-label="Quitar" icon={<MdClose />} onClick={() => setCart(cart.filter((_, j) => j !== i))} />

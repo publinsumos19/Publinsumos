@@ -14,7 +14,7 @@ import { Field, NumIn, Sel, TextIn } from '../components/Field';
 import { useAuth } from '../context/AuthContext';
 import { useLive, notifyChange } from '../hooks/useLive';
 import { supabase, errorMessage } from '../lib/supabase';
-import { addDays, fdate, intf, money, mondayOf, PAGOS, recibo, today } from '../lib/format';
+import { addDays, cantf, fdate, intf, money, mondayOf, PAGOS, recibo, today } from '../lib/format';
 import { toNum } from '../lib/pricing';
 import { cierreHtml, cierreText, privadoHtml, privadoText, resumenCierre } from '../lib/cierre';
 import { semaforoCartera } from '../lib/semaforo';
@@ -381,7 +381,7 @@ export default function Cierre() {
         </Seccion>
         <Seccion title="Insumos vendidos">
           <DataTable rows={R.productos.map((g) => ({ ...g, id: g.k }))} empty="No se vendieron insumos."
-            columns={[{ key: 'k', label: 'Producto' }, { key: 'cant', label: 'Cantidad', num: true, render: (g) => intf(g.cant) }, { key: 'total', label: 'Total', num: true, render: (g) => money(g.total) }]} />
+            columns={[{ key: 'k', label: 'Producto' }, { key: 'cant', label: 'Cantidad', num: true, render: (g) => cantf(g.cant) }, { key: 'total', label: 'Total', num: true, render: (g) => money(g.total) }]} />
         </Seccion>
         <Seccion title="Productos y servicios de terceros">
           <DataTable rows={R.terceros.map((g) => ({ ...g, id: g.k }))} empty="No hubo ventas de terceros."

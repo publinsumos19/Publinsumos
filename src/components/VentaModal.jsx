@@ -11,6 +11,7 @@ import { receiptText } from '../lib/receipt';
 import { toNum } from '../lib/pricing';
 import PagoBadge from './PagoBadge';
 import ShareModal from './ShareModal';
+import { cantItem } from '../lib/lamina';
 import { Field, NumIn, Sel } from './Field';
 
 export default function VentaModal({ ventaId, onClose }) {
@@ -84,7 +85,7 @@ export default function VentaModal({ ventaId, onClose }) {
                   <Flex key={k} justify="space-between" gap="12px" py="8px" borderBottom="1px solid" borderColor="gray.100">
                     <Box minW={0}>
                       <Text fontSize="sm" fontWeight="600">{i.desc}</Text>
-                      <Text fontSize="xs" color="secondaryGray.600">{intf(i.cant)} × {money(i.pu)}{i.extra ? ` + plastificado ${money(i.extra)}` : ''}{i.clics ? ` · ${intf(i.clics)} clics` : ''}</Text>
+                      <Text fontSize="xs" color="secondaryGray.600">{cantItem(i)} × {money(i.pu)}{i.extra ? ` + plastificado ${money(i.extra)}` : ''}{i.clics ? ` · ${intf(i.clics)} clics` : ''}</Text>
                     </Box>
                     <Text fontSize="sm" fontWeight="700" whiteSpace="nowrap">{money(i.total)}</Text>
                   </Flex>

@@ -8,6 +8,7 @@ import { supabase, errorMessage, isDemo } from '../lib/supabase';
 import { ESCALAS, toNum } from '../lib/pricing';
 import { semaforoCfg } from '../lib/semaforo';
 import { cotizacionCfg } from '../lib/trabajo';
+import { CORTE_MEDIA } from '../lib/lamina';
 import SistemaAjustes from '../components/SistemaAjustes';
 
 // The signature is scaled down so it stays light inside the settings.
@@ -84,6 +85,7 @@ export default function Ajustes() {
     pub.tolerancia = toNum(pub.tolerancia);
     pub.ultimoContador = toNum(pub.ultimoContador);
     pub.plastificado = { precio: toNum(pub.plastificado?.precio) };
+    if (pub.mediaLamina) pub.mediaLamina = { acrilico: toNum(pub.mediaLamina.acrilico), poliestireno: toNum(pub.mediaLamina.poliestireno) };
     pub.sustratos.forEach((s) => { s.precios = s.precios.map(toNum); });
     pub.tamanos.forEach((t) => { t.clics = toNum(t.clics) || 1; t.piezas = toNum(t.piezas) || 1; });
     pub.cierreDia = toNum(pub.cierreDia ?? 6);
@@ -184,6 +186,10 @@ export default function Ajustes() {
             </SimpleGrid>
             <Field label="Precio plastificado (unidad)"><NumIn value={a.plastificado?.precio ?? 0} onChange={(e) => upd((y) => { y.plastificado = { precio: e.target.value }; })} /></Field>
             <Field label="Costo plastificado (unidad)"><NumIn value={c.plastificadoCosto} onChange={(e) => updC((y) => { y.plastificadoCosto = e.target.value; })} /></Field>
+            <SimpleGrid columns={2} gap="10px">
+              <Field label="Corte media lámina acrílica"><NumIn value={a.mediaLamina?.acrilico ?? CORTE_MEDIA.acrilico} onChange={(e) => upd((y) => { y.mediaLamina = { ...CORTE_MEDIA, ...y.mediaLamina, acrilico: e.target.value }; })} /></Field>
+              <Field label="Corte media lámina poliestireno"><NumIn value={a.mediaLamina?.poliestireno ?? CORTE_MEDIA.poliestireno} onChange={(e) => upd((y) => { y.mediaLamina = { ...CORTE_MEDIA, ...y.mediaLamina, poliestireno: e.target.value }; })} /></Field>
+            </SimpleGrid>
             <Field label="Diferencia aceptada en el cuadre (%)"><NumIn value={a.tolerancia ?? 5} onChange={(e) => upd((y) => { y.tolerancia = e.target.value; })} /></Field>
             <Field label="Día del cierre semanal">
               <Sel value={String(a.cierreDia ?? 6)} onChange={(e) => upd((y) => { y.cierreDia = e.target.value; })} options={[['5', 'Viernes'], ['6', 'Sábado'], ['0', 'Domingo']]} />
