@@ -1,5 +1,5 @@
 // Custom jobs (cotizador personalizado): totals, WhatsApp text and a printable quote.
-import { fdate, money, intf, today } from './format';
+import { cantf, fdate, money, intf, today } from './format';
 import { toNum } from './pricing';
 import LOGO from '../assets/logo-publiinsumos.png?inline';
 
@@ -86,15 +86,17 @@ export function contarHabiles(desde, hasta) {
   return k;
 }
 
+// What the customer reads about the job: the description, or (if there is none) the concepts without prices.
+export const descripcionCliente = (t) => (String(t.descripcion || '').trim()
+  || (t.lineas || []).map((l) => `${l.concepto}${l.detalle ? ` (${l.detalle})` : ''}${toNum(l.cant) !== 1 ? ` x ${cantf(l.cant)}` : ''}`).join('\n'));
+
 export function trabajoText(negocio, t) {
   const L = [`*${negocio?.nombre || 'Publiinsumos'}*`, `${t.estado === 'cotizacion' ? 'Cotización' : 'Trabajo'} ${numeroT(t)} · ${fdate(t.fecha || today())}`];
   if (t.cliente) L.push(`Cliente: ${t.cliente}${t.sucursal ? ` · ${t.sucursal}` : ''}`);
   if (t.titulo) L.push(`*${t.titulo}*`);
   L.push('');
-  for (const l of t.lineas || []) {
-    L.push(`• ${l.concepto}${l.detalle ? ` (${l.detalle})` : ''}`);
-    L.push(`   ${intf(l.cant)} × ${money(l.pu)} = ${money(lineaTotal(l))}`);
-  }
+  // The customer sees only the description, never the breakdown of items and prices.
+  L.push(descripcionCliente(t));
   if (toNum(t.descuento)) L.push('', `Subtotal: ${money(subtotal(t.lineas))}`, `Descuento: -${money(t.descuento)}`);
   L.push('', `*Total: ${money(totalTrabajo(t))}*`);
   if (t.privado && retencionValor(t)) {
@@ -148,7 +150,6 @@ const destinatario = (t) => `<p>Señores:</p><p class="b up">${esc(t.cliente || 
 
 export function trabajoHtml(negocio, t, fmt = {}) {
   const total = totalTrabajo(t);
-  const filas = (t.lineas || []).map((l) => `<tr><td>${esc(l.concepto)}</td><td>${esc(l.detalle || '')}</td><td class="c">${intf(l.cant)}</td><td class="n">${money(l.pu)}</td><td class="n">${money(lineaTotal(l))}</td></tr>`).join('');
   const cotiza = t.estado === 'cotizacion';
   const conds = String(t.condiciones || (cotiza ? 'Cotización válida por 15 días.' : '')).split('\n').map((x) => x.trim()).filter(Boolean);
   const datos = [
@@ -162,9 +163,8 @@ export function trabajoHtml(negocio, t, fmt = {}) {
 ${destinatario(t)}
 <p class="num up">${cotiza ? 'Cotización' : 'Orden de trabajo'} ${esc(numeroT(t))}</p>
 ${t.titulo ? `<div class="ref"><span>REF:</span><span class="up">${esc(t.titulo)}</span></div>` : ''}
-${t.descripcion ? `<div class="desc">${esc(t.descripcion)}</div>` : ''}
-<table><thead><tr><th>ITEM</th><th>MEDIDA</th><th>CANTIDAD</th><th>PRECIO</th><th>SUBTOTAL</th></tr></thead><tbody>${filas}</tbody></table>
-<div class="tot">${toNum(t.descuento) ? `<div><span>Subtotal</span><span>${money(subtotal(t.lineas))}</span></div><div><span>Descuento</span><span>-${money(t.descuento)}</span></div>` : ''}
+${descripcionCliente(t) ? `<div class="desc">${esc(descripcionCliente(t))}</div>` : ''}
+<div class="tot" style="margin-top:18px">${toNum(t.descuento) ? `<div><span>Subtotal</span><span>${money(subtotal(t.lineas))}</span></div><div><span>Descuento</span><span>-${money(t.descuento)}</span></div>` : ''}
 <div class="g"><span>Total</span><span>${money(total)}</span></div>
 ${t.privado && retencionValor(t) ? (t.retenciones || []).map((r) => `<div><span>${esc(r.label)} (${r.pct}%)</span><span>-${money(total * (toNum(r.pct) / 100))}</span></div>`).join('') + `<div class="g"><span>Neto a pagar</span><span>${money(netoTrabajo(t))}</span></div>` : ''}
 ${toNum(t.abonado) ? `<div><span>Abonado</span><span>${money(t.abonado)}</span></div><div><span>Saldo</span><span>${money(netoTrabajo(t) - toNum(t.abonado))}</span></div>` : ''}</div>
