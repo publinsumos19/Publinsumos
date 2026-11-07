@@ -9,7 +9,7 @@ export function receiptText(negocio, v, kind) {
   L.push('');
   for (const it of v.items) {
     L.push(`• ${cantItem(it)} × ${it.desc}`);
-    L.push(`   ${money(it.pu)} c/u${it.extra ? ' + plastificado ' + money(it.extra) : ''} = ${money(it.total)}`);
+    L.push(`   ${money(it.pu)} ${it.cm ? 'el metro' : 'c/u'}${it.extra ? ' + plastificado ' + money(it.extra) : ''} = ${money(it.total)}`);
   }
   L.push('', `*Total: ${money(v.total)}*`);
   if (kind === 'quote') L.push('Precios válidos por 8 días.');

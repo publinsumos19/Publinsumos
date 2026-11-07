@@ -97,3 +97,24 @@ describe('media lámina', async () => {
     expect(cantItem({ cant: 3 })).toBe('3');
   });
 });
+
+describe('vinilos por metro', async () => {
+  const { porMetro, precioCm, cantItem, detalleItem } = await import('./lamina');
+  it('detecta productos por metro y deja el acrílico igual', () => {
+    expect(porMetro({ unidad: 'm', categoria: 'Vinilos de corte' })).toBe(true);
+    expect(porMetro({ unidad: 'und', categoria: 'Vinilos de corte' })).toBe(false);
+    expect(porMetro({ unidad: 'm', categoria: 'Láminas de acrílico' })).toBe(false);
+  });
+  it('regla de 3 redondeada a la centena hacia arriba', () => {
+    expect(precioCm(5700, 100)).toBe(5700);
+    expect(precioCm(5700, 60)).toBe(3500); // 3420
+    expect(precioCm(5700, 50)).toBe(2900); // 2850
+    expect(precioCm(5700, 180)).toBe(10300); // 10260
+    expect(precioCm(12000, 50)).toBe(6000);
+  });
+  it('muestra los cm en el ticket', () => {
+    expect(cantItem({ cant: 0.6, cm: 60 })).toBe('60 cm');
+    expect(detalleItem({ cant: 0.6, cm: 60, pu: 5700 })).toContain('el metro');
+  });
+});
+

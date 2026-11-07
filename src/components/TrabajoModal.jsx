@@ -78,6 +78,8 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
   const editable = !t.id || ['cotizacion', 'aprobado'].includes(t.estado);
   const total = totalTrabajo(t);
   const neto = isAdmin && t.privado ? netoTrabajo(t) : total;
+  // Credit terms (10/30/45/60 days): approving needs no advance, so the amount starts at $0.
+  const aCredito = ['10', '30', '45', '60'].includes(String(t.forma_pago || ''));
   const costoTotal = t.lineas.reduce((a, l, i) => a + toNum(l.cant) * toNum(costos[i]), 0);
   const sugerencias = useMemo(() => [...new Set([...CONCEPTOS_BASE, ...(cfg?.conceptos || []), ...conceptos])], [cfg, conceptos]);
 
@@ -561,7 +563,7 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
             {t.estado === 'cotizacion' && <Button size="sm" variant={t.enviada ? 'outline' : 'light'} colorScheme={t.enviada ? 'teal' : undefined} onClick={validarEnvio} isLoading={busy}>{t.enviada ? '✓ Enviada' : 'Validar envío'}</Button>}
             {editable && <Button size="sm" variant="lightBrand" onClick={async () => { if (await guardar()) toast({ title: 'Guardado', status: 'success' }); }} isLoading={busy}>Guardar</Button>}
             {t.estado === 'cotizacion' && (t.privado
-              ? <Button size="sm" variant="brand" onClick={() => { setAccion('aprobar'); setOc(t.orden_compra || ''); setMonto(String(Math.round(neto / 2))); }}>Aprobar</Button>
+              ? <Button size="sm" variant="brand" onClick={() => { setAccion('aprobar'); setOc(t.orden_compra || ''); setMonto(aCredito ? '0' : String(Math.round(neto / 2))); }}>Aprobar</Button>
               : <Button size="sm" variant="brand" onClick={() => { setAccion('venta'); setMonto(String(Math.round(total / 2))); setPago('credito'); }}>Pasar a venta</Button>)}
             {['aprobado', 'entregado'].includes(t.estado) && saldo > 0 && <Button size="sm" variant="brand" onClick={() => { setAccion('abonar'); setMonto(String(saldo)); }}>Abonar</Button>}
             {t.estado === 'aprobado' && <Button size="sm" variant="light" leftIcon={<MdLocalShipping />} onClick={() => cambiarEstado('entregado')} isLoading={busy}>Terminar y generar remisión</Button>}
@@ -574,18 +576,19 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
           <ModalCloseButton />
           <ModalBody pt="20px" pb="16px">
               <Box>
-                <Text fontWeight="700" mb="10px">{accion === 'aprobar' ? 'Aprobar trabajo y recibir anticipo' : accion === 'abonar' ? 'Registrar abono' : 'Pasar a venta'}</Text>
+                <Text fontWeight="700" mb="10px">{aCredito ? `Aprobar trabajo · crédito a ${t.forma_pago} días` : 'Aprobar trabajo y recibir anticipo'}</Text>
                 <SimpleGrid columns={{ base: 1, md: 3 }} gap="10px" alignItems="end">
                   {accion === 'aprobar' && <Field label="Orden de compra (opcional)"><TextIn value={oc} onChange={(e) => setOc(e.target.value)} placeholder="N° de la orden del cliente" /></Field>}
                   {accion === 'venta' && <Field label="Forma de pago"><Sel value={pago} onChange={(e) => setPago(e.target.value)} options={PAGOS_VENTA} /></Field>}
-                  {(accion !== 'venta' || pago === 'credito') && <Field label={accion === 'aprobar' ? 'Anticipo (opcional)' : accion === 'venta' ? 'Abono inicial' : 'Abono'}><NumIn min={0} value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0" /></Field>}
-                  {(accion !== 'venta' || pago === 'credito') && accion !== 'venta' && <Field label="Recibido en"><Sel value={pago} onChange={(e) => setPago(e.target.value)} options={PAGOS_ABONO} /></Field>}
+                  {(accion !== 'venta' || pago === 'credito') && <Field label={aCredito ? 'Abono (deja $0 si aún no paga)' : accion === 'aprobar' ? 'Anticipo (opcional)' : accion === 'venta' ? 'Abono inicial' : 'Abono'}><NumIn min={0} value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0" /></Field>}
+                  {(accion !== 'venta' || pago === 'credito') && accion !== 'venta' && toNum(monto) > 0 && <Field label="Recibido en"><Sel value={pago} onChange={(e) => setPago(e.target.value)} options={PAGOS_ABONO} /></Field>}
                   {accion === 'venta' && (
                     <Flex gap="14px" align="center" h="44px"><Text fontSize="sm" fontWeight="600">F-E</Text>
                       <Switch colorScheme="green" isChecked={fe} onChange={(e) => setFe(e.target.checked)} /><Text fontSize="sm">{fe ? 'Sí' : 'No'}</Text>
                     </Flex>
                   )}
                 </SimpleGrid>
+                {toNum(monto) <= 0 && <Text fontSize="sm" color="secondaryGray.600" mt="8px">Se aprueba sin abono. Todo el valor ({money(neto - toNum(t.abonado))}) queda como saldo pendiente{aCredito ? ` a ${t.forma_pago} días` : ''}. Los abonos los registras cuando el cliente pague.</Text>}
                 {accion === 'venta' && <Text fontSize="sm" color="secondaryGray.600" mt="8px">Se registra como venta del negocio. Si es a crédito, el saldo va a la Cartera del negocio.</Text>}
                 <Flex gap="10px" mt="12px"><Button variant="brand" onClick={confirmar} isLoading={busy} isDisabled={accion === 'abonar' && toNum(monto) <= 0}>Confirmar</Button><Button variant="ghost" onClick={() => setAccion(null)}>Cancelar</Button></Flex>
               </Box>
