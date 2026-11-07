@@ -16,7 +16,7 @@ import { useLive } from '../hooks/useLive';
 import { supabase } from '../lib/supabase';
 import { addDays, fdate, intf, LINEAS, mesKey, money, mondayOf, recibo, today } from '../lib/format';
 import { toNum } from '../lib/pricing';
-import { numeroT } from '../lib/trabajo';
+import { costoTrabajo, fechaVentaTrabajo, netoVendido, numeroT } from '../lib/trabajo';
 import { semaforoEntrega } from '../lib/semaforo';
 import Semaforo from '../components/Semaforo';
 
@@ -49,6 +49,8 @@ export default function Dashboard() {
   const productos = useLive(() => supabase.from('productos').select('*').eq('tipo', 'propio'), ['productos']);
   const trabajos = useLive(() => supabase.from('trabajos').select('*'), ['trabajos']);
   const gastos = useLive(() => supabase.from('gastos').select('monto, pago, caja, categoria, fecha').gte('fecha', mes + '-01'), ['gastos'], [mes]);
+  const tCostos = useLive(() => (isAdmin ? supabase.from('trabajo_costos').select('*') : Promise.resolve({ data: [] })), ['trabajos'], [isAdmin]);
+  const tAbonos = useLive(() => (isAdmin ? supabase.from('trabajo_abonos').select('monto, fecha, trabajos(privado)').gte('fecha', mes + '-01') : Promise.resolve({ data: [] })), ['trabajo_abonos', 'trabajos'], [mes, isAdmin]);
   const contador = useLive(() => (isAdmin ? supabase.from('contador').select('*').order('fin', { ascending: false }).limit(12) : Promise.resolve({ data: [] })), ['contador'], [isAdmin]);
 
   const vs = ventas.data || [];
@@ -60,6 +62,13 @@ export default function Dashboard() {
   const porCobrar = (cartera.data || []).reduce((a, v) => a + toNum(v.saldo), 0);
   const privado = ts.filter((t) => t.privado && ['aprobado', 'entregado'].includes(t.estado)).reduce((a, t) => a + toNum(t.saldo), 0);
   const enCurso = ts.filter((t) => t.estado === 'aprobado');
+  // Private jobs (Cartera privada) count as sold on the day they were approved. Admin only.
+  const costoDe = Object.fromEntries((tCostos.data || []).map((c) => [c.trabajo_id, c.costos || []]));
+  const privVend = ts.filter((t) => t.privado && ['aprobado', 'entregado'].includes(t.estado));
+  const privMes = privVend.filter((t) => fechaVentaTrabajo(t).startsWith(mes));
+  const privVentaMes = privMes.reduce((a, t) => a + netoVendido(t), 0);
+  const privGanMes = privMes.reduce((a, t) => a + netoVendido(t) - costoTrabajo(t, costoDe[t.id]), 0);
+  const privRecibido = (tAbonos.data || []).filter((a) => a.trabajos?.privado).reduce((s, a) => s + toNum(a.monto), 0);
   const abiertas = ts.filter((t) => t.estado === 'cotizacion');
   const itemsMes = delMes.flatMap((v) => v.items);
   const imps = itemsMes.filter((i) => i.tipo === 'imp');
@@ -68,7 +77,8 @@ export default function Dashboard() {
 
   const dias = useMemo(() => Array.from({ length: isAdmin ? 30 : 7 }, (_, i) => addDays(hoy, i - (isAdmin ? 29 : 6))), [hoy, isAdmin]);
   const serie = dias.map((d) => sumT(vs.filter((v) => v.fecha === d)));
-  const lineas = Object.keys(LINEAS).map((k) => itemsMes.filter((i) => (i.tipo || 'serv') === k).reduce((a, i) => a + toNum(i.total), 0));
+  const seriePriv = dias.map((d) => privVend.filter((t) => fechaVentaTrabajo(t) === d).reduce((a, t) => a + netoVendido(t), 0));
+  const lineas = [...Object.keys(LINEAS).map((k) => itemsMes.filter((i) => (i.tipo || 'serv') === k).reduce((a, i) => a + toNum(i.total), 0)), ...(isAdmin ? [privVentaMes] : [])];
   const medios = ['efectivo', 'bancolombia', 'nequi', 'transferencia'].map((m) => (abonos.data || []).filter((a) => a.pago === m).reduce((s, a) => s + toNum(a.monto), 0));
 
   const ultimoCuadre = ['general', 'color', 'bn'].map((tipo) => (contador.data || []).find((r) => (r.tipo || 'general') === tipo)).filter(Boolean);
@@ -76,7 +86,7 @@ export default function Dashboard() {
     .filter((i) => i.tipo === 'imp' && ((r.tipo || 'general') === 'general' || (r.tipo === 'color') === !!i.det?.color)).reduce((a, i) => a + toNum(i.clics), 0);
   const tol = toNum(cfg?.tolerancia ?? 5) / 100;
 
-  const serieKey = serie.join(',');
+  const serieKey = serie.join(',') + '|' + (isAdmin ? seriePriv.join(',') : '');
   // Stable chart props: ApexCharts redraws on every new options object, which flickers and can error during navigation.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const area = useMemo(() => ({
@@ -87,20 +97,20 @@ export default function Dashboard() {
       xaxis: { categories: dias.map((d) => fdate(d).slice(0, 5)), labels: { style: { colors: axis, fontSize: '11px' }, rotate: 0, hideOverlappingLabels: true }, axisBorder: { show: false }, axisTicks: { show: false }, tickAmount: 8 },
       yaxis: { labels: { style: { colors: axis, fontSize: '12px' }, formatter: (v) => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)} M` : `$${Math.round(v / 1e3)} mil`) } },
       grid: { strokeDashArray: 5, xaxis: { lines: { show: false } } },
-      colors: ['#0B8F63'], tooltip: { theme: 'dark', y: { formatter: (v) => money(v) } },
+      colors: ['#0B8F63', '#C04CD9'], legend: { show: isAdmin, labels: { colors: axis } }, tooltip: { theme: 'dark', y: { formatter: (v) => money(v) } },
     },
-    series: [{ name: 'Ventas', data: serie }],
+    series: isAdmin ? [{ name: 'Tienda', data: serie }, { name: 'Trabajos privados', data: seriePriv }] : [{ name: 'Ventas', data: serie }],
   }), [serieKey, axis]);
-  const donut = (labels, data) => ({
+  const donut = (labels, data, colors = COLORES) => ({
     options: {
-      labels, colors: COLORES, chart: { fontFamily: 'DM Sans', animations: { enabled: false } }, legend: { position: 'bottom', labels: { colors: axis } },
+      labels, colors, chart: { fontFamily: 'DM Sans', animations: { enabled: false } }, legend: { position: 'bottom', labels: { colors: axis } },
       dataLabels: { enabled: false }, stroke: { width: 0 }, tooltip: { y: { formatter: (v) => money(v) } },
       plotOptions: { pie: { donut: { size: '68%', labels: { show: true, total: { show: true, label: 'Total', color: axis, formatter: (w) => money(w.globals.seriesTotals.reduce((a, b) => a + b, 0)) }, value: { formatter: (v) => money(v) } } } } },
     },
     series: data,
   });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const dLineas = useMemo(() => donut(Object.values(LINEAS), lineas), [lineas.join(','), axis]);
+  const dLineas = useMemo(() => donut([...Object.values(LINEAS), ...(isAdmin ? ['Trabajos privados'] : [])], lineas, [...COLORES.slice(0, Object.keys(LINEAS).length), '#C04CD9']), [lineas.join(','), axis, isAdmin]);
   const mediosL = ['Efectivo', 'Bancolombia', 'Nequi', 'Transferencia'];
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const dMedios = useMemo(() => donut(mediosL.filter((_, i) => medios[i] || i < 3), medios.filter((v, i) => v || i < 3)), [medios.join(','), axis]);
@@ -162,7 +172,17 @@ export default function Dashboard() {
         <MiniStatistics compact icon={MdPrint} name="Clics del mes" value={intf(clics(true) + clics(false))} help={`Color ${intf(clics(true))} · B/N ${intf(clics(false))}`} />
       </SimpleGrid>
 
-      <Panel title="Ventas de los últimos 30 días"><Box h="260px"><Chart type="area" height="100%" width="100%" options={area.options} series={area.series} /></Box></Panel>
+      <Box>
+        <Flex align="center" gap="8px" mb="10px"><Text fontSize="lg" fontWeight="700">Trabajos privados del mes</Text><Badge colorScheme="purple">Solo tú lo ves</Badge></Flex>
+        <SimpleGrid columns={{ base: 2, md: 4 }} gap="12px">
+          <MiniStatistics compact icon={MdLock} name="Vendido privado" value={money(privVentaMes)} help={`${privMes.length} trabajos aprobados este mes`} tone="purple" />
+          <MiniStatistics compact icon={MdTrendingUp} name="Ganancia privada" value={money(privGanMes)} help={`${privVentaMes ? Math.round((privGanMes / privVentaMes) * 100) : 0}% sobre lo vendido`} tone="green" />
+          <MiniStatistics compact icon={MdAttachMoney} name="Recibido privado" value={money(privRecibido)} help="Abonos de trabajos privados este mes" />
+          <MiniStatistics compact icon={MdSavings} name="Ganancia total del mes" value={money(ganMes + privGanMes)} help="Tienda + trabajos privados" tone="green" />
+        </SimpleGrid>
+      </Box>
+
+      <Panel title={`Ventas de los últimos 30 días${privVend.length ? ' · tienda y privados' : ''}`}><Box h="260px"><Chart type="area" height="100%" width="100%" options={area.options} series={area.series} /></Box></Panel>
 
       <SimpleGrid columns={{ base: 1, xl: 3 }} gap="20px" alignItems="start">
         <Panel title="Ventas del mes por línea">{sumT(delMes) ? <Box h="300px"><Chart type="donut" height="100%" width="100%" options={dLineas.options} series={dLineas.series} /></Box> : <Text color="secondaryGray.600" fontSize="sm">Sin ventas este mes.</Text>}</Panel>

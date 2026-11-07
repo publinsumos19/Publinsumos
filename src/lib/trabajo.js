@@ -33,6 +33,10 @@ export const numeroR = (n) => 'REM-' + String(n ?? '').padStart(4, '0');
 // Each part says how much goes into ONE unit of the product.
 export const esCompuesto = (l) => Array.isArray(l.componentes) && l.componentes.length > 0;
 export const precioComponentes = (l) => (l.componentes || []).reduce((a, c) => a + toNum(c.cant) * toNum(c.pu), 0);
+// Sold value of a job (after retentions), its total cost (admin costs per unit × qty) and the day it counts as sold.
+export const netoVendido = (t) => toNum(t.total) - toNum(t.retencion);
+export const costoTrabajo = (t, costos = []) => (t.lineas || []).reduce((a, l, i) => a + toNum(l.cant) * toNum(costos[i]), 0);
+export const fechaVentaTrabajo = (t) => t.aprobado_fecha || t.fecha || '';
 export const costoComponentes = (l, costos = []) => (l.componentes || []).reduce((a, c, k) => a + toNum(c.cant) * toNum(costos[k]), 0);
 
 // Default file name: number, client and first product.
