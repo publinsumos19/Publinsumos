@@ -102,7 +102,9 @@ describe('vinilos por metro', async () => {
   const { porMetro, precioCm, cantItem, detalleItem } = await import('./lamina');
   it('detecta productos por metro y deja el acrílico igual', () => {
     expect(porMetro({ unidad: 'm', categoria: 'Vinilos de corte' })).toBe(true);
-    expect(porMetro({ unidad: 'und', categoria: 'Vinilos de corte' })).toBe(false);
+    expect(porMetro({ unidad: 'und', categoria: 'Vinilos de corte' })).toBe(true);
+    expect(porMetro({ unidad: 'und', categoria: 'Vinilo de impresión' })).toBe(true);
+    expect(porMetro({ unidad: 'und', categoria: 'Tintas' })).toBe(false);
     expect(porMetro({ unidad: 'm', categoria: 'Láminas de acrílico' })).toBe(false);
   });
   it('regla de 3 redondeada a la centena hacia arriba', () => {

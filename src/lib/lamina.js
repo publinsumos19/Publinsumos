@@ -20,7 +20,8 @@ export const precioMedia = (cfg, p) => Math.round(toNum(p?.precio) / 2) + corteM
 // Vinyls and other rolls sold by the metre can be sold in centimetres (60 cm, 1,8 m...).
 // Price = price per metre × metres, rounded UP to the next $100. cant stays in metres for stock and cost.
 const UNIDADES_METRO = ['m', 'mt', 'mts', 'metro', 'metros', 'ml'];
-export const porMetro = (p) => !tipoLamina(p) && UNIDADES_METRO.includes(normalize(p?.unidad || '').replace(/\./g, '').trim());
+// Every vinyl category (impresión, laminado, corte) sells by the metre, even products loaded with unit "und".
+export const porMetro = (p) => !tipoLamina(p) && (UNIDADES_METRO.includes(normalize(p?.unidad || '').replace(/\./g, '').trim()) || normalize(p?.categoria || '').includes('vinil'));
 export const precioCm = (precioMetro, cm) => Math.ceil((toNum(precioMetro) * toNum(cm)) / 100 / 100) * 100;
 
 // "2 medias" for half sheets, "60 cm" for vinyl cuts, otherwise the plain quantity.
