@@ -186,6 +186,24 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
     setT({ ...t, retenciones: on ? t.retenciones.filter((x) => x.id !== r.id) : [...(t.retenciones || []), { id: r.id, label: r.label, pct: r.pct }] });
   };
 
+  // The admin can fix a job marked private by mistake (or the other way) after it was approved.
+  // The job and all its payments move together; closings already saved keep their numbers.
+  const [armadoPriv, setArmadoPriv] = useState(false);
+  const cambiarPrivado = async () => {
+    if (!armadoPriv) return setArmadoPriv(true);
+    setArmadoPriv(false);
+    const privado = !t.privado;
+    const vivo = ['aprobado', 'entregado'].includes(t.estado);
+    const cambios = { privado, retenciones: [], retencion: 0, ...(vivo ? { saldo: Math.max(0, toNum(t.total) - toNum(t.abonado)) } : {}) };
+    setBusy(true);
+    const { error } = await supabase.from('trabajos').update(cambios).eq('id', t.id);
+    setBusy(false);
+    if (error) return toast({ title: errorMessage(error), status: 'error' });
+    setT({ ...t, ...cambios });
+    notifyChange('trabajos', 'trabajo_abonos');
+    toast({ title: privado ? 'El trabajo ahora es privado' : 'El trabajo ahora es de la tienda', status: 'success' });
+  };
+
   const limpio = () => {
     const lineas = t.lineas.filter((l) => l.concepto.trim() || toNum(l.pu)).map((l) => ({ concepto: l.concepto.trim() || 'Sin nombre', detalle: (l.detalle || '').trim(), ...(l.producto_id ? { producto_id: l.producto_id } : {}), ...(l.media && l.producto_id ? { media: true } : {}), cant: toNum(l.cant) || 1, pu: toNum(l.pu), total: lineaTotal(l),
       ...(esCompuesto(l) ? { componentes: l.componentes.filter((c) => (c.concepto || '').trim() || toNum(c.pu)).map((c) => ({ concepto: (c.concepto || '').trim() || 'Sin nombre', cant: toNum(c.cant) || 1, pu: toNum(c.pu), ...(c.producto_id ? { producto_id: c.producto_id } : {}) })) } : {}) }));
@@ -456,11 +474,19 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
                     </Flex>
                   </Box>
                 )}
-                {isAdmin && (
+                {isAdmin && (!t.id || t.estado === 'cotizacion') && (
                   <Flex align="center" gap="10px">
-                    <Switch colorScheme="purple" id="sw-privado" isChecked={!!t.privado} onChange={(e) => setT({ ...t, privado: e.target.checked })} isDisabled={!editable || (t.id && t.estado !== 'cotizacion')} />
+                    <Switch colorScheme="purple" id="sw-privado" isChecked={!!t.privado} onChange={(e) => setT({ ...t, privado: e.target.checked })} isDisabled={!editable} />
                     <Text as="label" htmlFor="sw-privado" fontSize="sm">Privado: va a mi Cartera privada y el vendedor no lo ve</Text>
                   </Flex>
+                )}
+                {isAdmin && t.id && !['cotizacion', 'vendido', 'anulado'].includes(t.estado) && (
+                  <Box borderWidth="1px" borderColor="purple.200" borderRadius="12px" p="10px">
+                    <Text fontSize="sm" mb="6px">{t.privado ? 'Este trabajo es privado: sus abonos van a tu Cartera privada y no a la caja de la tienda.' : 'Este trabajo es de la tienda: el vendedor lo ve y sus abonos en efectivo entran a la caja de insumos.'}</Text>
+                    <Button size="sm" variant="outline" colorScheme="purple" isLoading={busy} onClick={cambiarPrivado}>
+                      {armadoPriv ? `¿Seguro? Todos sus abonos pasan ${t.privado ? 'a la caja de la tienda' : 'a tu Cartera privada'}` : t.privado ? 'Me equivoqué: pasarlo a la tienda (no privado)' : 'Pasarlo a privado'}
+                    </Button>
+                  </Box>
                 )}
               </Flex>
               <Box bg={panel} p="14px" borderRadius="16px" fontSize="sm">
