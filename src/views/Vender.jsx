@@ -93,7 +93,7 @@ export default function Vender() {
     if (metroSel) {
       // cant is typed in cm; stock and cost go in metres.
       const m = cant / 100;
-      add({ tipo: 'prod', productoId: prodSel.id, desc: prodSel.nombre, cant: m, cm: cant, pu: toNum(prod.pu), total: precioCm(prod.pu, cant), costoPrev: m * toNum(costoDe[prodSel.id]) });
+      add({ tipo: 'prod', productoId: prodSel.id, desc: prodSel.nombre, cant: m, cm: cant, pu: toNum(prodSel.precio), total: precioCm(prodSel.precio, cant), costoPrev: m * toNum(costoDe[prodSel.id]) });
       setProd((f) => ({ ...f, cant: 100 }));
       return;
     }
@@ -154,7 +154,7 @@ export default function Vender() {
 
   const enCarro = (id) => cart.filter((i) => i.productoId === id).reduce((a, i) => a + i.cant, 0);
   const sinStock = prodSel && toNum(prodSel.stock) - enCarro(prodSel.id) - toNum(prod.cant) * (metroSel ? 0.01 : prod.media && laminaSel ? 0.5 : 1) < 0;
-  const totalProd = metroSel ? precioCm(prod.pu, prod.cant) : toNum(prod.cant) * toNum(prod.pu);
+  const totalProd = metroSel ? precioCm(prodSel.precio, prod.cant) : toNum(prod.cant) * toNum(prod.pu);
 
   return (
     <Grid templateColumns={{ base: '1fr', lg: '1.4fr 1fr' }} gap="20px" alignItems="start">
@@ -239,7 +239,7 @@ export default function Vender() {
                     onSelect={(p) => setProd({ ...prod, id: p.id, pu: p.precio ?? '', media: false, cant: porMetro(p) ? 100 : (porMetro(prodSel) ? 1 : prod.cant) })} />
                 </Field>
                 <Field label={metroSel ? 'Medida (cm)' : prod.media && laminaSel ? 'Cantidad de medias' : 'Cantidad'}><NumIn min={1} value={prod.cant} onChange={(e) => setProd({ ...prod, cant: e.target.value })} /></Field>
-                <Field label={metroSel ? 'Precio por metro' : 'Precio unitario'}><NumIn min={0} value={prod.pu} onChange={(e) => setProd({ ...prod, pu: e.target.value })} /></Field>
+                {!metroSel && <Field label="Precio unitario"><NumIn min={0} value={prod.pu} onChange={(e) => setProd({ ...prod, pu: e.target.value })} /></Field>}
               </Grid>
               {laminaSel && (
                 <Flex align="center" gap="10px" wrap="wrap">
@@ -249,7 +249,7 @@ export default function Vender() {
                   {prod.media && <Text fontSize="xs" color="secondaryGray.600" w="100%">Cada media descuenta 0,5 lámina del inventario.</Text>}
                 </Flex>
               )}
-              {metroSel && <Text fontSize="xs" color="secondaryGray.600">Escribe los centímetros: 100 = 1 metro, 60 = 60 cm, 180 = 1,8 m. El precio se calcula por regla de 3 y se redondea a la centena.</Text>}
+              {metroSel && <Text fontSize="xs" color="secondaryGray.600">Escribe los centímetros: 100 = 1 metro, 60 = 60 cm, 180 = 1,8 m. El precio sale solo del inventario.</Text>}
               {sinStock && <Text fontSize="sm" color="orange.500" fontWeight="600">Solo hay {cantf(prodSel.stock)} {prodSel.unidad} en inventario. Puedes venderlo igual, pero revisa el stock.</Text>}
               <Flex justify="space-between" align="center" bg={panel} borderRadius="16px" p="16px">
                 <Text fontSize="28px" fontWeight="700" color={textColor}>{money(totalProd)}</Text>

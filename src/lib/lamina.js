@@ -29,5 +29,5 @@ export const cantItem = (it) => {
   if (it?.cm) return `${cantf(it.cm)} cm`;
   return cantf(it?.cant);
 };
-// Small line under each ticket item: "3 × $ 5.000", or "60 cm · $ 5.700 el metro".
-export const detalleItem = (it) => (it?.cm ? `${cantItem(it)} · ${money(it.pu)} el metro` : `${cantItem(it)} × ${money(it.pu)}`);
+// Small line under each ticket item: "3 × $ 5.000", or just "60 cm" for vinyl cuts (the price per metre stays internal).
+export const detalleItem = (it) => (it?.cm ? cantItem(it) : `${cantItem(it)} × ${money(it.pu)}`);

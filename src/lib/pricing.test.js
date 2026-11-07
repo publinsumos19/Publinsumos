@@ -114,7 +114,7 @@ describe('vinilos por metro', async () => {
   });
   it('muestra los cm en el ticket', () => {
     expect(cantItem({ cant: 0.6, cm: 60 })).toBe('60 cm');
-    expect(detalleItem({ cant: 0.6, cm: 60, pu: 5700 })).toContain('el metro');
+    expect(detalleItem({ cant: 0.6, cm: 60, pu: 5700 })).toBe('60 cm');
   });
 });
 
