@@ -982,6 +982,8 @@ alter table public.ventas add column if not exists dias_credito int;
 alter table public.trabajos add column if not exists factura text;
 alter table public.trabajos add column if not exists factura_fecha date;
 alter table public.trabajos add column if not exists dias_credito int;
+-- F-E (factura electrónica) Sí/No on custom jobs, like sales.
+alter table public.trabajos add column if not exists fe boolean not null default false;
 
 -- Sales are read-only for clients, so the invoice goes through this function (any active user).
 -- p_fecha null clears the invoice.

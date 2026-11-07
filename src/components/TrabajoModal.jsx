@@ -206,6 +206,15 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
     toast({ title: privado ? 'El trabajo ahora es privado' : 'El trabajo ahora es de la tienda', status: 'success' });
   };
 
+  // F-E can be marked at any time; on a saved job it is stored right away.
+  const cambiarFe = async (v) => {
+    setT((x) => ({ ...x, fe: v }));
+    if (!t.id) return;
+    const { error } = await supabase.from('trabajos').update({ fe: v }).eq('id', t.id);
+    if (error) { setT((x) => ({ ...x, fe: !v })); return toast({ title: errorMessage(error), status: 'error' }); }
+    notifyChange('trabajos');
+  };
+
   const limpio = () => {
     const lineas = t.lineas.filter((l) => l.concepto.trim() || toNum(l.pu)).map((l) => ({ concepto: l.concepto.trim() || 'Sin nombre', detalle: (l.detalle || '').trim(), ...(l.producto_id ? { producto_id: l.producto_id } : {}), ...(l.media && l.producto_id ? { media: true } : {}), cant: toNum(l.cant) || 1, pu: toNum(l.pu), total: lineaTotal(l),
       ...(esCompuesto(l) ? { componentes: l.componentes.filter((c) => (c.concepto || '').trim() || toNum(c.pu)).map((c) => ({ concepto: (c.concepto || '').trim() || 'Sin nombre', cant: toNum(c.cant) || 1, pu: toNum(c.pu), ...(c.producto_id ? { producto_id: c.producto_id } : {}) })) } : {}) }));
@@ -221,6 +230,7 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
       instalacion: t.instalacion || 'sin', dias_entrega: toNum(t.dias_entrega) || null, condiciones: (t.condiciones || '').trim(),
       retenciones, retencion, enviada: t.enviada || null, sucursal: t.sucursal || '',
       contacto: (t.contacto || '').trim(), cargo: (t.cargo || '').trim(), ciudad: (t.ciudad || '').trim(), descripcion: (t.descripcion || '').trim(),
+      fe: !!t.fe,
       orden_compra: (t.orden_compra || '').trim(), entrada_almacen: (t.entrada_almacen || '').trim(), entrada_fecha: t.entrada_fecha || null,
     };
   };
@@ -387,6 +397,12 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
             <SimpleGrid columns={{ base: 1, md: 3 }} gap="12px" alignItems="end">
               <Field label="Instalación">
                 <Segmented value={t.instalacion || 'sin'} onChange={(v) => editable && setInstalacion(v)} options={[['sin', 'Sin instalación'], ['con', 'Con instalación']]} />
+              </Field>
+              <Field label="F-E (factura electrónica)">
+                <Flex align="center" gap="16px" h="44px">
+                  <Checkbox colorScheme="green" isChecked={!!t.fe} onChange={() => cambiarFe(true)}>Sí</Checkbox>
+                  <Checkbox colorScheme="green" isChecked={!t.fe} onChange={() => cambiarFe(false)}>No</Checkbox>
+                </Flex>
               </Field>
               <Field label="Fecha de entrega">
                 <TextIn type="date" value={t.entrega || ''} onChange={(e) => setT({ ...t, entrega: e.target.value, dias_entrega: contarHabiles(t.fecha || today(), e.target.value) })} isDisabled={!editable} />
@@ -576,7 +592,7 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
             {editable && <Button size="sm" variant="lightBrand" onClick={async () => { if (await guardar()) toast({ title: 'Guardado', status: 'success' }); }} isLoading={busy}>Guardar</Button>}
             {t.estado === 'cotizacion' && (t.privado
               ? <Button size="sm" variant="brand" onClick={() => { setAccion('aprobar'); setOc(t.orden_compra || ''); setMonto(String(Math.round(neto / 2))); }}>Aprobar</Button>
-              : <Button size="sm" variant="brand" onClick={() => { setAccion('venta'); setMonto(String(Math.round(total / 2))); setPago('credito'); }}>Pasar a venta</Button>)}
+              : <Button size="sm" variant="brand" onClick={() => { setAccion('venta'); setMonto(String(Math.round(total / 2))); setPago('credito'); setFe(!!t.fe); }}>Pasar a venta</Button>)}
             {['aprobado', 'entregado'].includes(t.estado) && saldo > 0 && <Button size="sm" variant="brand" onClick={() => { setAccion('abonar'); setMonto(String(saldo)); }}>Abonar</Button>}
             {t.estado === 'aprobado' && <Button size="sm" variant="light" leftIcon={<MdLocalShipping />} onClick={() => cambiarEstado('entregado')} isLoading={busy}>Terminar y generar remisión</Button>}
           </Flex>
