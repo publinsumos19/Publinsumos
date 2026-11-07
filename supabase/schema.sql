@@ -972,3 +972,30 @@ begin
     execute format('create trigger marcar_cambio after insert or update or delete on public.%I for each statement execute function public.marcar_cambio()', t);
   end loop;
 end $$;
+
+-- ============ v8: factura y vencimiento de créditos ============
+-- A credit sale or job is invoiced later (e.g. the following Monday). The due date counts from the invoice
+-- date plus the agreed days, not from the sale date. Only new nullable columns; nothing existing changes.
+alter table public.ventas add column if not exists factura text;
+alter table public.ventas add column if not exists factura_fecha date;
+alter table public.ventas add column if not exists dias_credito int;
+alter table public.trabajos add column if not exists factura text;
+alter table public.trabajos add column if not exists factura_fecha date;
+alter table public.trabajos add column if not exists dias_credito int;
+
+-- Sales are read-only for clients, so the invoice goes through this function (any active user).
+-- p_fecha null clears the invoice.
+create or replace function public.facturar_venta(p_venta uuid, p_factura text, p_fecha date, p_dias int) returns public.ventas
+language plpgsql security definer set search_path = public as $$
+declare
+  v ventas;
+begin
+  if not es_activo() then raise exception 'Usuario sin acceso'; end if;
+  if p_fecha is not null and (p_dias is null or p_dias < 0 or p_dias > 365) then raise exception 'Escribe el plazo en días (0 a 365)'; end if;
+  update ventas set factura = nullif(trim(coalesce(p_factura, '')), ''), factura_fecha = p_fecha, dias_credito = case when p_fecha is null then null else p_dias end
+    where id = p_venta returning * into v;
+  if v.id is null then raise exception 'Venta no encontrada'; end if;
+  return v;
+end;
+$$;
+grant execute on function public.facturar_venta(uuid, text, date, int) to authenticated;

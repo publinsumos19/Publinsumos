@@ -120,3 +120,27 @@ describe('vinilos por metro', async () => {
   });
 });
 
+
+describe('vencimiento desde la factura', async () => {
+  const { semaforoCredito, venceCredito, plazoForma, peorSemaforo } = await import('./semaforo');
+  const { addDays, today } = await import('./format');
+  const hoy = today();
+  it('plazo desde la forma de pago del cliente', () => {
+    expect(plazoForma('60')).toBe(60);
+    expect(plazoForma('anticipo50')).toBe(null);
+    expect(plazoForma('')).toBe(null);
+  });
+  it('vence = fecha de factura + días', () => {
+    expect(venceCredito({ factura_fecha: '2026-11-09', dias_credito: 60 })).toBe('2027-01-08');
+    expect(venceCredito({ fecha: '2026-11-07' })).toBe(null);
+  });
+  it('colores por días que faltan', () => {
+    expect(semaforoCredito({ fecha: addDays(hoy, -40), factura_fecha: addDays(hoy, -2), dias_credito: 60 }).color).toBe('green');
+    expect(semaforoCredito({ fecha: addDays(hoy, -40), factura_fecha: addDays(hoy, -55), dias_credito: 60 }).color).toBe('yellow');
+    expect(semaforoCredito({ fecha: addDays(hoy, -70), factura_fecha: addDays(hoy, -65), dias_credito: 60 }).color).toBe('red');
+    expect(semaforoCredito({ fecha: addDays(hoy, -3) }).label).toContain('sin factura');
+  });
+  it('el peor del grupo manda', () => {
+    expect(peorSemaforo([{ fecha: addDays(hoy, -1) }, { fecha: addDays(hoy, -90), factura_fecha: addDays(hoy, -70), dias_credito: 30 }]).color).toBe('red');
+  });
+});

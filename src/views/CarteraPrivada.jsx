@@ -12,7 +12,7 @@ import { supabase } from '../lib/supabase';
 import { fdate, mesKey, money, PAGOS, today } from '../lib/format';
 import { numeroT } from '../lib/trabajo';
 import { toNum } from '../lib/pricing';
-import { semaforoCartera } from '../lib/semaforo';
+import { peorSemaforo } from '../lib/semaforo';
 import Semaforo from '../components/Semaforo';
 
 // The admin's own accounts for private custom jobs. Kept apart from the shop's Cartera; the seller never reaches it.
@@ -63,8 +63,8 @@ export default function CarteraPrivada() {
           rows={grupos}
           empty="Nadie te debe trabajos privados."
           columns={[
-            { key: 'c', label: 'Cliente', render: (g) => <><Text fontWeight="700">{g.cliente}</Text><Flex gap="8px" wrap="wrap" fontSize="xs">{g.trabajos.map((t) => <Link key={t.id} color="purple.500" onClick={() => setAbierto(t)}>{numeroT(t)} {t.titulo} · {money(t.saldo)}</Link>)}</Flex></> },
-            { key: 'd', label: 'Desde', render: (g) => <Flex gap="8px" align="center" wrap="wrap"><Text>{fdate(g.desde)}</Text><Semaforo s={semaforoCartera(g.desde, cfg)} small /></Flex> },
+            { key: 'c', label: 'Cliente', render: (g) => <><Text fontWeight="700">{g.cliente}</Text><Flex gap="8px" wrap="wrap" fontSize="xs">{g.trabajos.map((t) => <Link key={t.id} color="purple.500" onClick={() => setAbierto(t)}>{numeroT(t)} {t.titulo} · {money(t.saldo)}{t.factura_fecha ? ` · fact. ${t.factura || fdate(t.factura_fecha)}` : ''}</Link>)}</Flex></> },
+            { key: 'd', label: 'Desde / vence', render: (g) => <Flex gap="8px" align="center" wrap="wrap"><Text>{fdate(g.desde)}</Text><Semaforo s={peorSemaforo(g.trabajos, cfg)} small /></Flex> },
             { key: 's', label: 'Saldo', num: true, render: (g) => <Text fontWeight="700">{money(g.saldo)}</Text> },
             { key: 'a', label: '', num: true, render: (g) => <Button size="sm" variant="lightBrand" onClick={() => recordar(g)}>Recordar</Button> },
           ]}

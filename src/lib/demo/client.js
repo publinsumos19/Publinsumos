@@ -227,6 +227,12 @@ const RPC = {
     }
     return v;
   },
+  facturar_venta({ p_venta, p_factura, p_fecha, p_dias }) {
+    const v = db.ventas.find((x) => x.id === p_venta);
+    if (!v) throw new Error('Venta no encontrada');
+    Object.assign(v, { factura: (p_factura || '').trim() || null, factura_fecha: p_fecha || null, dias_credito: p_fecha ? p_dias : null });
+    return v;
+  },
   registrar_abono({ p_venta, p_monto, p_pago, p_fecha }) {
     const v = db.ventas.find((x) => x.id === p_venta);
     if (!v) throw new Error('Venta no encontrada');

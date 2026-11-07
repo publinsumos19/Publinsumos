@@ -14,6 +14,8 @@ import {
   CONCEPTOS_BASE, ESTADOS, cotizacionCfg, lineaTotal, netoTrabajo, numeroT, numeroR, retencionValor, subtotal, sumarHabiles, contarHabiles, totalTrabajo, trabajoHtml, trabajoText,
   esCompuesto, precioComponentes, costoComponentes, nombreArchivo, remisionHtml,
 } from '../lib/trabajo';
+import FacturaCredito from './FacturaCredito';
+import { plazoForma } from '../lib/semaforo';
 import { margenDe, precioConMargen } from '../lib/margen';
 import Segmented from './Segmented';
 import { FormaPagoPicker } from './ClienteModal';
@@ -244,6 +246,16 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
     notifyChange('trabajos');
     setT({ ...t, ...res.data, lineas: res.data.lineas.map((l) => ({ ...l, ...(l.componentes ? { componentes: l.componentes.map((c) => ({ ...c })) } : {}) })) });
     return res.data;
+  };
+
+  // Invoice date and term only; the rest of the job is untouched.
+  const facturar = async (c) => {
+    const { data, error } = await supabase.from('trabajos').update(c).eq('id', t.id).select().single();
+    if (error) { toast({ title: errorMessage(error), status: 'error' }); return false; }
+    notifyChange('trabajos');
+    setT((x) => ({ ...x, factura: data.factura, factura_fecha: data.factura_fecha, dias_credito: data.dias_credito }));
+    toast({ title: c.factura_fecha ? 'Factura guardada' : 'Factura quitada', status: 'success' });
+    return true;
   };
 
   const abonar = async (id, m) => {
@@ -508,6 +520,8 @@ export default function TrabajoModal({ trabajo, onClose, conceptos = [] }) {
                 {abonos.data.map((a) => <Flex key={a.id} justify="space-between" fontSize="sm"><Text>{fdate(a.fecha)} · {PAGOS[a.pago]}</Text><Text>{money(a.monto)}</Text></Flex>)}
               </Box>
             )}
+
+            {t.id && ['aprobado', 'entregado'].includes(t.estado) && <FacturaCredito x={t} plazo={plazoForma(t.forma_pago)} onSave={facturar} />}
 
             {t.id && ['aprobado', 'entregado', 'vendido'].includes(t.estado) && (
               <Box border="1px solid" borderColor="secondaryGray.100" p="14px" borderRadius="16px">

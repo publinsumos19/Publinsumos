@@ -13,6 +13,8 @@ import PagoBadge from './PagoBadge';
 import ShareModal from './ShareModal';
 import { detalleItem } from '../lib/lamina';
 import { Field, NumIn, Sel } from './Field';
+import FacturaCredito from './FacturaCredito';
+import { plazoForma } from '../lib/semaforo';
 
 export default function VentaModal({ ventaId, onClose }) {
   const { cfg, isAdmin } = useAuth();
@@ -26,6 +28,7 @@ export default function VentaModal({ ventaId, onClose }) {
   const [pago, setPago] = useState('efectivo');
   const [armed, setArmed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [plazo, setPlazo] = useState(null);
   const panel = useColorModeValue('secondaryGray.300', 'whiteAlpha.100');
 
   const load = async () => {
@@ -37,6 +40,10 @@ export default function VentaModal({ ventaId, onClose }) {
       const { data: p } = await supabase.from('perfiles').select('nombre').eq('id', data.vendedor_id).maybeSingle();
       setVendedor(p?.nombre || '');
     }
+    if (data?.cliente_id) {
+      const { data: cl } = await supabase.from('clientes').select('forma_pago').eq('id', data.cliente_id).maybeSingle();
+      setPlazo(plazoForma(cl?.forma_pago));
+    } else setPlazo(null);
     if (isAdmin) {
       const { data: c } = await supabase.from('venta_costos').select('costo').eq('venta_id', ventaId).maybeSingle();
       setCosto(c?.costo ?? null);
@@ -56,6 +63,14 @@ export default function VentaModal({ ventaId, onClose }) {
     toast({ title: 'Abono registrado', status: 'success' });
     setMonto('');
     load();
+  };
+  const facturar = async (c) => {
+    const { error } = await supabase.rpc('facturar_venta', { p_venta: v.id, p_factura: c.factura, p_fecha: c.factura_fecha, p_dias: c.dias_credito });
+    if (error) { toast({ title: errorMessage(error), status: 'error' }); return false; }
+    notifyChange('ventas');
+    toast({ title: c.factura_fecha ? 'Factura guardada' : 'Factura quitada', status: 'success' });
+    load();
+    return true;
   };
   const anular = async () => {
     if (!armed) return setArmed(true);
@@ -105,6 +120,7 @@ export default function VentaModal({ ventaId, onClose }) {
                   ))}
                 </Box>
               )}
+              {(v.pago === 'credito' || Number(v.saldo) > 0 || v.factura_fecha) && <FacturaCredito x={v} plazo={plazo} onSave={facturar} />}
               {Number(v.saldo) > 0 && (
                 <Box bg={panel} p="14px" borderRadius="16px">
                   <Flex justify="space-between" mb="10px"><Text fontWeight="600">Saldo pendiente</Text><Text fontWeight="700">{money(v.saldo)}</Text></Flex>

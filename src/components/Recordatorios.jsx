@@ -8,7 +8,7 @@ import { useLive } from '../hooks/useLive';
 import { supabase } from '../lib/supabase';
 import { fdate, money, today } from '../lib/format';
 import { toNum } from '../lib/pricing';
-import { ORDEN, semaforoCartera, semaforoEntrega } from '../lib/semaforo';
+import { ORDEN, peorSemaforo, semaforoCredito, semaforoEntrega } from '../lib/semaforo';
 import { numeroT } from '../lib/trabajo';
 import AperturaCaja from './AperturaCaja';
 import Semaforo from './Semaforo';
@@ -44,7 +44,7 @@ export default function Recordatorios() {
   const aperturas = useLive(() => supabase.from('aperturas').select('*').order('fecha', { ascending: false }).limit(30), ['aperturas']);
   const cierres = useLive(() => supabase.from('cierres').select('desde, tipo').eq('tipo', 'diario'), ['cierres']);
   const trabajos = useLive(() => supabase.from('trabajos').select('*'), ['trabajos']);
-  const deudas = useLive(() => supabase.from('ventas').select('id, fecha, cliente, cliente_id, telefono, saldo').gt('saldo', 0).order('fecha'), ['ventas']);
+  const deudas = useLive(() => supabase.from('ventas').select('id, fecha, cliente, cliente_id, telefono, saldo, factura_fecha, dias_credito').gt('saldo', 0).order('fecha'), ['ventas']);
 
   const listo = [aperturas, cierres, trabajos, deudas].every((q) => q.data);
   const r = useMemo(() => {
@@ -57,13 +57,14 @@ export default function Recordatorios() {
     const g = {};
     for (const v of deudas.data) {
       const k = v.cliente_id || v.cliente || 'sin';
-      (g[k] ||= { cliente: v.cliente || 'Sin nombre', tel: v.telefono, saldo: 0, desde: v.fecha, n: 0 });
+      (g[k] ||= { cliente: v.cliente || 'Sin nombre', tel: v.telefono, saldo: 0, desde: v.fecha, n: 0, ventas: [] });
+      g[k].ventas.push(v);
       g[k].saldo += toNum(v.saldo); g[k].n += 1;
     }
-    const cartera = Object.values(g).map((x) => ({ ...x, s: semaforoCartera(x.desde, cfg) })).filter((x) => x.s.color !== 'green')
+    const cartera = Object.values(g).map((x) => ({ ...x, s: peorSemaforo(x.ventas, cfg) })).filter((x) => x.s.color !== 'green')
       .sort((a, b) => ORDEN[a.s.color] - ORDEN[b.s.color] || b.saldo - a.saldo);
     const privada = isAdmin ? trabajos.data.filter((t) => t.privado && toNum(t.saldo) > 0 && !['cotizacion', 'anulado'].includes(t.estado))
-      .map((t) => ({ t, s: semaforoCartera(t.fecha, cfg) })).filter((x) => x.s.color !== 'green')
+      .map((t) => ({ t, s: semaforoCredito(t, cfg) })).filter((x) => x.s.color !== 'green')
       .sort((a, b) => ORDEN[a.s.color] - ORDEN[b.s.color] || toNum(b.t.saldo) - toNum(a.t.saldo)) : [];
     const total = (aperturaHoy ? 0 : 1) + sinCierre.length + entregas.length + cartera.length + privada.length;
     return { aperturaHoy, sinCierre, entregas, cartera, privada, total };

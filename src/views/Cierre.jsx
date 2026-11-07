@@ -17,7 +17,7 @@ import { supabase, errorMessage } from '../lib/supabase';
 import { addDays, cantf, fdate, intf, money, mondayOf, PAGOS, recibo, today } from '../lib/format';
 import { toNum } from '../lib/pricing';
 import { cierreHtml, cierreText, privadoHtml, privadoText, resumenCierre } from '../lib/cierre';
-import { semaforoCartera } from '../lib/semaforo';
+import { semaforoCredito } from '../lib/semaforo';
 import Semaforo from '../components/Semaforo';
 import { ESTADOS } from '../lib/trabajo';
 import { canPrint, csvFrom, printHtml, saveFile } from '../lib/export';
@@ -231,7 +231,7 @@ export default function Cierre() {
               <DataTable rows={R.privado.pendientes} empty="Nadie te debe trabajos privados."
                 columns={[
                   { key: 'c', label: 'Cliente y trabajo', render: (t) => <><Text fontWeight="600">{t.cliente}</Text><Text fontSize="xs" color="secondaryGray.600">{t.titulo}</Text></> },
-                  { key: 'd', label: 'Desde', render: (t) => <Semaforo s={semaforoCartera(t.fecha, cfg)} small /> },
+                  { key: 'd', label: 'Desde', render: (t) => <Semaforo s={semaforoCredito(t, cfg)} small /> },
                   { key: 's', label: 'Saldo', num: true, render: (t) => money(t.saldo) },
                 ]}
                 footer={R.privado.saldo ? <Pie cells={['Total', '', money(R.privado.saldo)]} /> : null} />
