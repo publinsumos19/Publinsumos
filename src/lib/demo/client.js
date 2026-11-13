@@ -218,7 +218,7 @@ const RPC = {
     const fecha = p.fecha || today();
     const v = {
       id: uuid(), numero: ++db.seq, fecha, creado: p._creado || now(), cliente_id: clienteId, cliente: nombre || 'Cliente de mostrador',
-      telefono: tel, items, total, pago, abonado, saldo: total - abonado, nota: String(p.nota || '').trim(), vendedor_id: p._vendedor || me().id, fe: !!p.fe,
+      telefono: tel, items, total, pago, abonado, saldo: total - abonado, nota: String(p.nota || '').trim(), vendedor_id: p._vendedor || me().id, fe: !!p.fe, descuento: Math.max(toNum(p.descuento), 0), descuento_pct: toNum(p.descuentoPct),
     };
     db.ventas.push(v);
     db.venta_costos.push({ venta_id: v.id, costo: costoTotal });

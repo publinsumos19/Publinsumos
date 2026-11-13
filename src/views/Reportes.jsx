@@ -84,8 +84,8 @@ export default function Reportes() {
 
   const csv = () => {
     const q = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
-    const rows = [['Fecha', 'Recibo', 'Cliente', 'Tipo', 'Detalle', 'Cantidad', 'Precio unitario', 'Plastificado', 'Total item', 'Clics', 'Pago', 'Total venta', 'Saldo']];
-    for (const v of vs) for (const i of v.items) rows.push([fdate(v.fecha), recibo(v), v.cliente, { imp: 'Impresión', prod: 'Producto', serv: 'Servicio', pers: 'Trabajo personalizado' }[i.tipo], i.desc, i.cant, i.pu, i.extra || 0, i.total, i.clics || 0, PAGOS[v.pago], v.total, v.saldo]);
+    const rows = [['Fecha', 'Recibo', 'Cliente', 'Tipo', 'Detalle', 'Cantidad', 'Precio unitario', 'Plastificado', 'Total item', 'Descuento ítem', 'Clics', 'Pago', 'Descuento venta', 'Total venta', 'Saldo']];
+    for (const v of vs) for (const i of v.items) rows.push([fdate(v.fecha), recibo(v), v.cliente, { imp: 'Impresión', prod: 'Producto', serv: 'Servicio', pers: 'Trabajo personalizado' }[i.tipo], i.desc, i.cant, i.pu, i.extra || 0, i.total, i.dto || 0, i.clics || 0, PAGOS[v.pago], v.descuento || 0, v.total, v.saldo]);
     const blob = new Blob(['﻿' + rows.map((r) => r.map(q).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

@@ -89,6 +89,23 @@ export function costoItem(cfg, costos, item, costoProducto = 0) {
 
 export const cartTotal = (cart) => cart.reduce((a, i) => a + toNum(i.total), 0);
 
+// Manual % discount on a whole sale. It is spread over the lines (each keeps its price before
+// the discount in `bruto` and its share in `dto`), so every report that adds line totals stays right.
+// The last line takes the rounding remainder so the lines add up exactly to the discounted total.
+export function aplicarDescuento(cart, pct) {
+  const p = Math.min(Math.max(toNum(pct), 0), 100);
+  const sub = cartTotal(cart);
+  const dto = Math.round((sub * p) / 100);
+  if (!dto) return { items: cart, subtotal: sub, descuento: 0, pct: 0, total: sub };
+  let resto = dto;
+  const items = cart.map((it, k) => {
+    const d = k === cart.length - 1 ? resto : Math.round((toNum(it.total) * p) / 100);
+    resto -= d;
+    return { ...it, bruto: toNum(it.total), dto: d, total: toNum(it.total) - d };
+  });
+  return { items, subtotal: sub, descuento: dto, pct: p, total: sub - dto };
+}
+
 // Approximate cost of a damaged print (not charged) with the current costs. Admin only.
 export const costoDano = (cfg, costos, d) =>
   calcImpresion(cfg, { sus: d.sus, gram: d.gram, color: d.color, cant: d.cant, plast: 0 }, costos)?.costo ?? 0;

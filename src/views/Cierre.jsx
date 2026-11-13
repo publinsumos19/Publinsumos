@@ -129,7 +129,7 @@ export default function Cierre() {
         base: cajas.reduce((a, c) => a + c.base, 0), efectivo_contado: contadoTotal, base_impresion: cajas[0].base, base_insumos: cajas[1].base,
         contado_impresion: contado.impresion === '' ? null : toNum(contado.impresion), contado_insumos: contado.insumos === '' ? null : toNum(contado.insumos),
       } : {}),
-      resumen: { ventas: R.ventas, recibido: R.recibido, credito: R.credito, lineas: R.lineas.map(({ k, total }) => ({ k, total })), esperado, fe: R.fe, gastos: G.total },
+      resumen: { ventas: R.ventas, descuentos: { n: R.descuentos.n, total: R.descuentos.total }, recibido: R.recibido, credito: R.credito, lineas: R.lineas.map(({ k, total }) => ({ k, total })), esperado, fe: R.fe, gastos: G.total },
     });
     setBusy(false);
     if (error) return toast({ title: errorMessage(error), status: 'error' });
@@ -152,9 +152,9 @@ export default function Cierre() {
   const descargar = async (fmt) => {
     try {
       if (fmt === 'html') return await saveFile(`${archivo}${soloPriv ? '-privado' : ''}.html`, htmlDe(), 'text/html;charset=utf-8');
-      const rows = [['Fecha', 'Recibo', 'Cliente', 'Línea', 'Detalle', 'Cantidad', 'Precio unitario', 'Total ítem', 'Clics', 'Color', 'Pago', 'F-E', 'Total venta', 'Saldo']];
+      const rows = [['Fecha', 'Recibo', 'Cliente', 'Línea', 'Detalle', 'Cantidad', 'Precio unitario', 'Total ítem', 'Descuento ítem', 'Clics', 'Color', 'Pago', 'F-E', 'Descuento venta', 'Total venta', 'Saldo']];
       for (const v of ventas.data) for (const i of v.items) {
-        rows.push([fdate(v.fecha), recibo(v), v.cliente, i.tipo, i.desc, i.cant, i.pu, i.total, i.clics || 0, i.tipo === 'imp' ? (i.det?.color ? 'Color' : 'B/N') : '', PAGOS[v.pago], v.fe ? 'Sí' : 'No', v.total, v.saldo]);
+        rows.push([fdate(v.fecha), recibo(v), v.cliente, i.tipo, i.desc, i.cant, i.pu, i.total, i.dto || 0, i.clics || 0, i.tipo === 'imp' ? (i.det?.color ? 'Color' : 'B/N') : '', PAGOS[v.pago], v.fe ? 'Sí' : 'No', v.descuento || 0, v.total, v.saldo]);
       }
       return await saveFile(`${archivo}.csv`, csvFrom(rows), 'text/csv;charset=utf-8');
     } catch (e) { return toast({ title: e.message, status: 'error' }); }
@@ -250,7 +250,7 @@ export default function Cierre() {
       ) : (
         <>
       <SimpleGrid columns={{ base: 1, md: 2, xl: 3, '2xl': 5 }} gap="20px">
-        <MiniStatistics icon={MdAttachMoney} name="Ventas" value={money(R.ventas.total)} help={`${R.ventas.n} ventas · promedio ${money(R.ventas.promedio)}`} />
+        <MiniStatistics icon={MdAttachMoney} name="Ventas" value={money(R.ventas.total)} help={`${R.ventas.n} ventas · promedio ${money(R.ventas.promedio)}${R.descuentos.total ? ` · descuentos −${money(R.descuentos.total)} (${R.descuentos.n})` : ''}`} />
         <MiniStatistics icon={MdAccountBalanceWallet} name="Dinero recibido" value={money(R.recibido.total)} help={`Abonos a cartera: ${money(R.recibido.deCartera)}`} />
         <MiniStatistics icon={MdCreditCard} name="Fiado en el periodo" value={money(R.credito.saldo)} help={`${R.credito.n} ventas a crédito`} tone="orange" />
         {isAdmin
@@ -347,6 +347,19 @@ export default function Cierre() {
           <Text fontSize="lg" fontWeight="700" color={textColor} mt="16px" mb="4px">Ventas por forma de pago</Text>
           <DataTable rows={R.ventasPorPago.map((p) => ({ ...p, id: p.k }))}
             columns={[{ key: 'label', label: 'Forma de pago' }, { key: 'n', label: 'Ventas', num: true }, { key: 'total', label: 'Total', num: true, render: (p) => money(p.total) }]} />
+          {R.descuentos.n > 0 && (
+            <>
+              <Text fontSize="lg" fontWeight="700" color={textColor} mt="16px" mb="4px">Descuentos aplicados</Text>
+              <DataTable rows={R.descuentos.ventas}
+                columns={[
+                  { key: 'c', label: 'Venta', render: (v) => <><Text fontWeight="600">{v.cliente}</Text><Text fontSize="xs" color="secondaryGray.600">{recibo(v)} · {fdate(v.fecha)}</Text></> },
+                  { key: 'p', label: '%', num: true, render: (v) => `${toNum(v.descuento_pct)}%` },
+                  { key: 'd', label: 'Descuento', num: true, render: (v) => `−${money(v.descuento)}` },
+                  { key: 't', label: 'Cobrado', num: true, render: (v) => money(v.total) },
+                ]}
+                footer={<Pie cells={['Total', '', `−${money(R.descuentos.total)}`, '']} />} />
+            </>
+          )}
         </Seccion>
       </SimpleGrid>
 

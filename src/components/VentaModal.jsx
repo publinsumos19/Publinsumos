@@ -102,9 +102,15 @@ export default function VentaModal({ ventaId, onClose }) {
                       <Text fontSize="sm" fontWeight="600">{i.desc}</Text>
                       <Text fontSize="xs" color="secondaryGray.600">{detalleItem(i)}{i.extra ? ` + plastificado ${money(i.extra)}` : ''}{i.clics ? ` · ${intf(i.clics)} clics` : ''}</Text>
                     </Box>
-                    <Text fontSize="sm" fontWeight="700" whiteSpace="nowrap">{money(i.total)}</Text>
+                    <Text fontSize="sm" fontWeight="700" whiteSpace="nowrap">{money(i.bruto ?? i.total)}</Text>
                   </Flex>
                 ))}
+                {toNum(v.descuento) > 0 && (
+                  <>
+                    <Flex justify="space-between" fontSize="sm" pt="10px"><Text>Subtotal</Text><Text>{money(toNum(v.total) + toNum(v.descuento))}</Text></Flex>
+                    <Flex justify="space-between" fontSize="sm" color="red.500"><Text>Descuento {toNum(v.descuento_pct)}%</Text><Text>−{money(v.descuento)}</Text></Flex>
+                  </>
+                )}
                 <Flex justify="space-between" align="center" pt="10px">
                   <Flex gap="8px" align="center" wrap="wrap"><Text fontWeight="700">Total</Text><PagoBadge v={v} /><Badge colorScheme={v.fe ? 'blue' : 'gray'}>F-E: {v.fe ? 'Sí' : 'No'}</Badge></Flex>
                   <Text fontWeight="700" fontSize="lg">{money(v.total)}</Text>

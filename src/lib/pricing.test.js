@@ -144,3 +144,22 @@ describe('vencimiento desde la factura', async () => {
     expect(peorSemaforo([{ fecha: addDays(hoy, -1) }, { fecha: addDays(hoy, -90), factura_fecha: addDays(hoy, -70), dias_credito: 30 }]).color).toBe('red');
   });
 });
+
+describe('descuento en la venta', async () => {
+  const { aplicarDescuento } = await import('./pricing');
+  const cart = [{ total: 10000 }, { total: 3333 }, { total: 6667 }];
+  it('0% no cambia nada', () => {
+    const D = aplicarDescuento(cart, 0);
+    expect(D.total).toBe(20000); expect(D.descuento).toBe(0); expect(D.items).toBe(cart);
+  });
+  it('reparte el descuento y las líneas suman exacto', () => {
+    const D = aplicarDescuento(cart, 5);
+    expect(D.descuento).toBe(1000); expect(D.total).toBe(19000);
+    expect(D.items.reduce((a, i) => a + i.total, 0)).toBe(19000);
+    expect(D.items[0]).toMatchObject({ bruto: 10000, dto: 500, total: 9500 });
+  });
+  it('no pasa de 100% ni baja de 0', () => {
+    expect(aplicarDescuento(cart, 150).total).toBe(0);
+    expect(aplicarDescuento(cart, -3).total).toBe(20000);
+  });
+});

@@ -9,9 +9,13 @@ export function receiptText(negocio, v, kind) {
   L.push('');
   for (const it of v.items) {
     L.push(`• ${cantItem(it)} × ${it.desc}`);
-    L.push(it.cm ? `   ${money(it.total)}` : `   ${money(it.pu)} c/u${it.extra ? ' + plastificado ' + money(it.extra) : ''} = ${money(it.total)}`);
+    // Lines show their price before the sale discount; the discount goes once at the end.
+    const t = it.bruto ?? it.total;
+    L.push(it.cm ? `   ${money(t)}` : `   ${money(it.pu)} c/u${it.extra ? ' + plastificado ' + money(it.extra) : ''} = ${money(t)}`);
   }
-  L.push('', `*Total: ${money(v.total)}*`);
+  L.push('');
+  if (Number(v.descuento) > 0) L.push(`Subtotal: ${money(Number(v.total) + Number(v.descuento))}`, `Descuento ${Number(v.descuento_pct)}%: −${money(v.descuento)}`);
+  L.push(`*Total: ${money(v.total)}*`);
   if (kind === 'quote') L.push('Precios válidos por 8 días.');
   else {
     L.push(`Pago: ${PAGOS[v.pago] || v.pago}`);

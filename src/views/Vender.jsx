@@ -10,7 +10,7 @@ import { Field, NumIn, Sel, TextIn } from '../components/Field';
 import { useAuth } from '../context/AuthContext';
 import { useLive, notifyChange } from '../hooks/useLive';
 import { supabase, errorMessage } from '../lib/supabase';
-import { calcImpresion, cartTotal, ESCALAS, itemImpresion, toNum } from '../lib/pricing';
+import { aplicarDescuento, calcImpresion, ESCALAS, itemImpresion, toNum } from '../lib/pricing';
 import { cantf, fdate, intf, money, PAGOS_ABONO, PAGOS_VENTA, today } from '../lib/format';
 import { receiptText } from '../lib/receipt';
 import { margenDe, precioConMargen } from '../lib/margen';
@@ -46,6 +46,7 @@ export default function Vender() {
   const [cart, setCart] = useState([]);
   const [pago, setPago] = useState('efectivo');
   const [abono, setAbono] = useState('');
+  const [dtoPct, setDtoPct] = useState('0');
   const [pagoAbono, setPagoAbono] = useState('efectivo');
   const [nota, setNota] = useState('');
   const [fe, setFe] = useState(false);
@@ -73,7 +74,9 @@ export default function Vender() {
   const laminaSel = tipoLamina(prodSel);
   const metroSel = porMetro(prodSel);
   const setMedia = (media) => setProd({ ...prod, media, pu: media ? precioMedia(cfg, prodSel) : prodSel?.precio ?? '' });
-  const total = cartTotal(cart);
+  // Manual % discount on the whole ticket (0 by default).
+  const D = aplicarDescuento(cart, dtoPct);
+  const total = D.total;
   const r = calcImpresion(cfg, imp, costos);
   const sus = cfg.sustratos.find((s) => s.id === imp.sus);
 
@@ -131,21 +134,21 @@ export default function Vender() {
   const registrar = async () => {
     if (faltaCliente) { setVerFalta(true); return toast({ title: 'Escribe el nombre y el teléfono del cliente', status: 'warning' }); }
     setSaving(true);
-    const items = cart.map(({ costoPrev, ...it }) => it);
+    const items = D.items.map(({ costoPrev, ...it }) => it);
     const { data, error } = await supabase.rpc('registrar_venta', {
-      p: { fecha: today(), cliente, telefono: tel, items, pago, abono: pago === 'credito' ? toNum(abono) : null, pagoAbono, nota, fe },
+      p: { fecha: today(), cliente, telefono: tel, items, pago, abono: pago === 'credito' ? toNum(abono) : null, pagoAbono, nota, fe, descuento: D.descuento, descuentoPct: D.pct },
     });
     setSaving(false);
     if (error) return toast({ title: errorMessage(error), status: 'error' });
     notifyChange('ventas', 'productos', 'clientes', 'abonos');
     setShareData({ title: `Venta registrada · ${data.numero ? 'N° ' + String(data.numero).padStart(5, '0') : ''}`, text: receiptText(cfg.negocio, data, 'sale'), tel: data.telefono });
     share.onOpen();
-    setCart([]); setCliente(''); setTel(''); setAbono(''); setNota(''); setPago('efectivo'); setFe(false); setVerFalta(false);
+    setCart([]); setCliente(''); setTel(''); setAbono(''); setNota(''); setPago('efectivo'); setFe(false); setVerFalta(false); setDtoPct('0');
   };
   const cotizar = () => {
     setShareData({
       title: 'Cotización',
-      text: receiptText(cfg.negocio, { cliente, items: cart, total, nota }, 'quote'),
+      text: receiptText(cfg.negocio, { cliente, items: D.items, total, nota, descuento: D.descuento, descuento_pct: D.pct }, 'quote'),
       tel,
       extra: <Button variant="lightBrand" onClick={() => { setModo('venta'); share.onClose(); }}>Convertir en venta</Button>,
     });
@@ -297,6 +300,17 @@ export default function Vender() {
             <IconButton size="xs" variant="ghost" aria-label="Quitar" icon={<MdClose />} onClick={() => setCart(cart.filter((_, j) => j !== i))} />
           </Flex>
         )) : <Text color="secondaryGray.600" fontSize="sm" textAlign="center" py="20px">Agrega impresiones, productos o servicios.</Text>}
+        {D.descuento > 0 && <Flex justify="space-between" fontSize="sm" color="secondaryGray.600" mt="12px"><Text>Subtotal</Text><Text>{money(D.subtotal)}</Text></Flex>}
+        {cart.length > 0 && (
+          <Flex justify="space-between" align="center" mt="12px" gap="10px">
+            <Flex align="center" gap="8px">
+              <Text fontSize="sm" color="secondaryGray.600">Descuento</Text>
+              <NumIn w="80px" h="36px" min={0} max={100} value={dtoPct} onChange={(e) => setDtoPct(e.target.value)} onFocus={(e) => e.target.select()} />
+              <Text fontSize="sm" color="secondaryGray.600">%</Text>
+            </Flex>
+            {D.descuento > 0 && <Text fontSize="sm" color="red.500" fontWeight="600">−{money(D.descuento)}</Text>}
+          </Flex>
+        )}
         <Flex justify="space-between" align="baseline" mt="14px" pt="12px" borderTop="2px solid" borderColor={textColor}>
           <Text fontWeight="600">Total</Text>
           <Text fontSize="32px" fontWeight="700" color={textColor} sx={{ fontVariantNumeric: 'tabular-nums' }}>{money(total)}</Text>

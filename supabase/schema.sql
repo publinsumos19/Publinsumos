@@ -146,6 +146,9 @@ create table if not exists public.contador (
 -- Estas líneas también actualizan una base creada con la versión anterior.
 -- ============================================================
 alter table public.ventas add column if not exists fe boolean not null default false;
+-- Manual % discount on the whole sale (already applied to the item totals and to total).
+alter table public.ventas add column if not exists descuento numeric not null default 0;
+alter table public.ventas add column if not exists descuento_pct numeric not null default 0;
 alter table public.contador add column if not exists tipo text not null default 'general';
 alter table public.ventas drop constraint if exists ventas_pago_check;
 alter table public.ventas add constraint ventas_pago_check check (pago in ('efectivo', 'bancolombia', 'nequi', 'transferencia', 'credito'));
@@ -480,9 +483,10 @@ begin
 
   v_abonado := case when v_pago = 'credito' then least(greatest(coalesce((p->>'abono')::numeric, 0), 0), v_total) else v_total end;
 
-  insert into ventas (fecha, cliente_id, cliente, telefono, items, total, pago, abonado, saldo, nota, vendedor_id, fe)
+  insert into ventas (fecha, cliente_id, cliente, telefono, items, total, pago, abonado, saldo, nota, vendedor_id, fe, descuento, descuento_pct)
   values (v_fecha, v_cliente_id, coalesce(v_nombre, 'Cliente de mostrador'), v_tel, items_out, v_total, v_pago,
-          v_abonado, v_total - v_abonado, btrim(coalesce(p->>'nota', '')), auth.uid(), coalesce((p->>'fe')::boolean, false))
+          v_abonado, v_total - v_abonado, btrim(coalesce(p->>'nota', '')), auth.uid(), coalesce((p->>'fe')::boolean, false),
+          greatest(coalesce((p->>'descuento')::numeric, 0), 0), least(greatest(coalesce((p->>'descuentoPct')::numeric, 0), 0), 100))
   returning * into v_venta;
 
   insert into venta_costos (venta_id, costo) values (v_venta.id, v_costo_total);
